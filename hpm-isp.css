@@ -465,17 +465,11 @@ body {
   box-shadow: 0 0 0 2px var(--focus-shadow);
 }
 
-.hpm-app .hpm-fw-topbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
 .hpm-app .hpm-fw-dropzone {
   display: block;
-  flex: 1 1 520px;
+  box-sizing: border-box;
+  flex: 1 1 320px;
+  width: auto;
   min-width: 0;
   margin: 0;
   padding: 2px 12px 4px;
@@ -519,27 +513,49 @@ body {
   white-space: nowrap;
 }
 
-.hpm-app .hpm-fw-topbar .hpm-flash-actions {
+.hpm-app .hpm-fw-file-row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.hpm-app .hpm-fw-action-group {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.hpm-app .hpm-fw-program-options {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hpm-app .hpm-fw-action-group .hpm-flash-actions {
   flex: 0 0 auto;
   align-items: center;
 }
 
-.hpm-app .hpm-fw-topbar .hpm-flash-actions button {
+.hpm-app .hpm-fw-action-group .hpm-flash-actions button {
   min-width: 92px;
   height: 38px;
   padding: 0 16px;
   font-size: 13px;
 }
-.hpm-app .hpm-fw-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
 
-.hpm-app .hpm-fw-head h2 {
-  margin: 0;
+#readFlashBtn,
+#eraseChipBtn,
+#flashBtn {
+  flex: 0 0 108px;
+  width: 108px;
 }
 
 .hpm-app .hpm-fw-top {
@@ -561,9 +577,9 @@ body {
 
 .hpm-app .hpm-fw-columns {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  align-items: start;
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
 }
 
 .hpm-app .hpm-fw-group {
@@ -573,16 +589,8 @@ body {
   min-width: 0;
 }
 
-.hpm-app .hpm-fw-group-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
 .hpm-app .hpm-fw-group + .hpm-fw-group {
-  padding-left: 20px;
+  padding-left: 8px;
   border-left: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
 }
 
@@ -605,6 +613,7 @@ body {
 }
 
 .hpm-app .hpm-image-type-label {
+  margin: 0;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
@@ -613,27 +622,21 @@ body {
 
 .hpm-app .hpm-image-type-controls {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
   min-width: 0;
 }
 
-.hpm-app .hpm-image-type-controls select {
-  flex: 0 0 180px;
-  width: 180px;
+.hpm-app .hpm-image-type-controls select,
+.hpm-app .hpm-fw-address-group .field > input,
+.hpm-app .hpm-fw-config-group .hpm-input-with-action input {
+  height: 38px;
 }
 
-.hpm-app .hpm-image-type-controls .hpm-fw-options {
-  flex: 0 1 auto;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
+.hpm-app .hpm-image-type-controls select {
+  flex: 0 0 auto;
+  width: 100%;
+  font-size: 13px;
 }
 
 .hpm-app .hpm-fw-group .hpm-image-type-field {
@@ -642,13 +645,12 @@ body {
   max-width: 100%;
 }
 
-.hpm-app .hpm-fw-target-row > .field:first-child {
-  flex: 0 0 180px;
-}
-
-.hpm-app .hpm-fw-target-row > .field:last-child {
-  flex: 1 1 260px;
-  min-width: 0;
+.hpm-app .field > label {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .hpm-app .hpm-fw-group .hpm-fw-options {
@@ -717,6 +719,7 @@ body {
   justify-content: center;
   flex: 0 0 auto;
   height: 28px;
+  margin: 0;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--button-primary) 36%, transparent);
   border-radius: 6px;
@@ -870,6 +873,17 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+}
+
+.hpm-app .hpm-connect-hint {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.hpm-app .hpm-connect-hint:empty {
+  display: none;
 }
 
 .hpm-app #connState {
@@ -1264,6 +1278,14 @@ body {
   border-color: var(--error-color);
   background: color-mix(in srgb, var(--error-color) 16%, var(--input-bg));
   color: var(--error-color);
+}
+
+.hpm-app button.danger:disabled,
+.hpm-modal button.danger:disabled {
+  border-color: color-mix(in srgb, var(--input-border) 75%, transparent);
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 /* Log panel fills the remaining screen height. */
@@ -1662,6 +1684,140 @@ body {
   min-width: 92px;
 }
 
+.hpm-modal-icon--danger {
+  background: linear-gradient(135deg, #d35400 0%, #e74c3c 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--error-color) 28%, transparent);
+}
+
+.hpm-read-modal {
+  width: min(560px, 100%);
+}
+
+.hpm-read-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.hpm-modal .hpm-read-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.hpm-modal .hpm-read-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  outline: none;
+}
+
+.hpm-modal .hpm-read-field input:focus {
+  border-color: var(--button-primary);
+  box-shadow: 0 0 0 2px var(--focus-shadow);
+}
+
+.hpm-read-hint {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.hpm-read-hint code,
+.hpm-modal-desc code {
+  font-family: var(--font-monospace);
+  color: var(--text-secondary);
+}
+
+.hpm-erase-target {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--progress-bg) 24%, var(--card-bg));
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.hpm-detect-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.hpm-detect-info {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.hpm-detect-info.is-ok {
+  color: color-mix(in srgb, var(--hpm-success) 60%, var(--text-primary));
+}
+
+.hpm-detect-info.is-error {
+  color: var(--error-color);
+}
+
+.hpm-detect-btn {
+  flex: 0 0 auto;
+  min-width: 64px;
+  padding: 5px 10px !important;
+  font-size: 11px !important;
+}
+
+.hpm-erase-range-hint {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--progress-bg) 22%, var(--card-bg));
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.hpm-erase-range-hint.is-error {
+  border-color: color-mix(in srgb, var(--error-color) 45%, transparent);
+  background: color-mix(in srgb, var(--error-color) 8%, var(--card-bg));
+  color: var(--error-color);
+}
+
+.hpm-erase-range-hint.is-full {
+  border-color: color-mix(in srgb, var(--hpm-success) 45%, transparent);
+  background: color-mix(in srgb, var(--hpm-success) 8%, var(--card-bg));
+}
+
+/* Indeterminate progress for chip erase. */
+.hpm-progress-wrap.is-indeterminate .progress-bar {
+  width: 35% !important;
+  animation: hpm-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes hpm-indeterminate {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
 /* Flash configuration word generator. */
 .hpm-config-modal {
   width: min(860px, 100%);
@@ -1791,6 +1947,30 @@ body {
   padding-bottom: 9px;
   border-bottom: 1px solid color-mix(in srgb, var(--input-border) 40%, transparent);
 }
+.hpm-config-topbar-main {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hpm-config-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.hpm-config-actions button {
+  min-width: 88px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
 
 .hpm-config-custom {
   display: inline-flex;
@@ -2030,22 +2210,6 @@ body {
     border-left: 0;
   }
 
-  .hpm-app .hpm-fw-group-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .hpm-app .hpm-image-type-controls select {
-    flex: 1 1 auto;
-    width: 100%;
-  }
-
-  .hpm-app .hpm-fw-target-row > .field:first-child,
-  .hpm-app .hpm-fw-target-row > .field:last-child {
-    flex: 1 1 auto;
-    width: 100%;
-  }
-
   .hpm-app .hpm-connect-fields {
     grid-template-columns: 1fr;
   }
@@ -2060,6 +2224,10 @@ body {
 }
 
 @media (max-width: 540px) {
+  .hpm-read-grid {
+    grid-template-columns: 1fr;
+  }
+
   .hpm-fw-grid.hpm-fw-grid-2 {
     grid-template-columns: 1fr;
   }
@@ -2075,4 +2243,405 @@ body {
     width: 100%;
     justify-content: flex-end;
   }
+}
+
+/* Lively accents: state color, subtle PCB texture, and light micro-motion. */
+.hpm-app {
+  --hpm-state-color: color-mix(in srgb, var(--button-primary) 58%, var(--input-border));
+  --hpm-pcb-dot: color-mix(in srgb, var(--button-primary) 3%, transparent);
+  --hpm-verify-gradient: linear-gradient(90deg, #1f9d63, #7ad6a5);
+  background-image:
+    radial-gradient(
+      ellipse at 50% -18%,
+      color-mix(in srgb, var(--button-primary) 8%, transparent),
+      transparent 44%
+    ),
+    radial-gradient(circle at 1px 1px, var(--hpm-pcb-dot) 1px, transparent 0);
+  background-repeat: no-repeat, repeat;
+  background-size: 100% 280px, 22px 22px;
+}
+
+.hpm-app.is-connecting {
+  --hpm-state-color: var(--button-warning);
+}
+
+.hpm-app.is-connected {
+  --hpm-state-color: var(--progress-fill);
+}
+
+.hpm-app.is-busy {
+  --hpm-state-color: var(--button-warning);
+}
+
+.hpm-pager {
+  display: inline-block;
+  margin-right: 4px;
+  transform-origin: 50% 80%;
+}
+
+.hpm-title-text {
+  background: linear-gradient(100deg, #2f96bb 0%, #4fb8c9 55%, #7fd0df 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.hpm-chip-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--button-primary);
+  opacity: 0.78;
+  transition: color 0.25s ease, opacity 0.25s ease;
+}
+
+.hpm-chip-mark svg {
+  width: 22px;
+  height: 22px;
+}
+
+.hpm-app.is-connected .hpm-chip-mark {
+  color: var(--progress-fill);
+  opacity: 1;
+}
+
+.hpm-app.is-success .hpm-pager {
+  animation: hpm-pager-beep 0.55s ease-in-out;
+}
+
+.hpm-app #connState {
+  transition: color 0.25s ease;
+}
+
+.hpm-app #connState.is-connecting::before {
+  animation: hpm-dot-connecting 1.2s ease-out infinite;
+}
+
+.hpm-app #connState.is-connected::before {
+  animation: hpm-dot-connected 2.4s ease-in-out infinite;
+}
+
+.hpm-app .hpm-connect-bar,
+.hpm-app .hpm-fw-section {
+  position: relative;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hpm-app .hpm-connect-actions {
+  gap: 10px;
+}
+
+.hpm-conn-led {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 12%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--input-border) 18%, transparent);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hpm-conn-led::after {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  content: '';
+}
+
+.hpm-app.is-connecting .hpm-conn-led {
+  background: var(--button-warning);
+  animation: hpm-led-connecting 1.2s ease-out infinite;
+}
+
+.hpm-app.is-connected .hpm-conn-led {
+  background: var(--progress-fill);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--progress-fill) 14%, transparent),
+    0 0 10px color-mix(in srgb, var(--progress-fill) 45%, transparent);
+}
+
+.hpm-app.is-busy .hpm-conn-led {
+  animation: hpm-led-busy 0.9s ease-in-out infinite;
+}
+
+.hpm-app .hpm-connect-bar::before,
+.hpm-app .hpm-fw-section::before {
+  position: absolute;
+  top: 0;
+  right: 14px;
+  left: 14px;
+  height: 2px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, transparent, var(--hpm-state-color), transparent);
+  opacity: 0.65;
+  content: '';
+  pointer-events: none;
+}
+
+.hpm-app .hpm-connect-bar:hover,
+.hpm-app .hpm-fw-section:hover,
+.hpm-app .hpm-log-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--shadow) 70%, transparent);
+}
+
+.hpm-app .hpm-log-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hpm-app .hpm-fw-action-group .hpm-flash-actions button {
+  gap: 6px;
+}
+
+.hpm-btn-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+}
+
+.hpm-app .hpm-fw-action-group .hpm-flash-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--button-primary) 16%, transparent);
+}
+
+.hpm-app .hpm-fw-action-group .hpm-flash-actions button.primary:hover:not(:disabled) {
+  background-size: 180% 100%;
+  animation: hpm-primary-sheen 2.2s linear infinite;
+}
+
+.hpm-app .hpm-fw-dropzone {
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.hpm-app .hpm-fw-dropzone.is-dragover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--button-primary) 14%, transparent);
+  transform: translateY(-1px);
+}
+
+.hpm-fw-drop-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--button-primary) 9%, var(--input-bg));
+  color: var(--button-primary);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.hpm-fw-drop-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.hpm-drop-check {
+  display: none;
+}
+
+.hpm-fw-dropzone.has-file .hpm-fw-drop-icon {
+  background: color-mix(in srgb, var(--hpm-success) 12%, var(--input-bg));
+  color: var(--hpm-success);
+}
+
+.hpm-fw-dropzone.has-file .hpm-drop-upload {
+  display: none;
+}
+
+.hpm-fw-dropzone.has-file .hpm-drop-check {
+  display: block;
+}
+
+.hpm-fw-dropzone.is-dragover .hpm-fw-drop-icon {
+  transform: translateY(-2px) scale(1.06);
+}
+
+.hpm-app .progress-bar {
+  background-image: linear-gradient(
+    90deg,
+    var(--button-primary),
+    var(--progress-fill),
+    var(--button-primary)
+  );
+  background-size: 200% 100%;
+  animation: hpm-progress-flow 2.2s linear infinite;
+}
+
+.hpm-app .hpm-progress-wrap.is-verify .progress-bar {
+  background-image: var(--hpm-verify-gradient);
+}
+
+.hpm-app .log-line {
+  padding-left: 7px;
+  border-left: 2px solid transparent;
+}
+
+.hpm-app .log-line.debug {
+  border-left-color: color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+
+.hpm-app .log-line.info {
+  border-left-color: color-mix(in srgb, var(--button-primary) 58%, transparent);
+}
+
+.hpm-app .log-line.warn {
+  border-left-color: color-mix(in srgb, var(--button-warning) 65%, transparent);
+  background: color-mix(in srgb, var(--button-warning) 4%, transparent);
+}
+
+.hpm-app .log-line.error {
+  border-left-color: color-mix(in srgb, var(--error-color) 70%, transparent);
+  background: color-mix(in srgb, var(--error-color) 4%, transparent);
+}
+
+.hpm-app .log-line.success {
+  border-left-color: color-mix(in srgb, var(--hpm-success) 70%, transparent);
+  background: color-mix(in srgb, var(--hpm-success) 4%, transparent);
+}
+
+.hpm-app .hpm-log-success:not([hidden]) .hpm-log-success-icon {
+  animation: hpm-success-check 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes hpm-led-connecting {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--button-warning) 45%, transparent),
+      0 0 8px color-mix(in srgb, var(--button-warning) 38%, transparent);
+  }
+  70% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent),
+      0 0 0 7px transparent,
+      0 0 8px color-mix(in srgb, var(--button-warning) 24%, transparent);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 10%, transparent),
+      0 0 0 0 transparent,
+      0 0 8px transparent;
+  }
+}
+
+@keyframes hpm-led-busy {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.35);
+  }
+}
+
+@keyframes hpm-pager-beep {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-8deg);
+  }
+  40% {
+    transform: rotate(6deg);
+  }
+  60% {
+    transform: rotate(-4deg);
+  }
+  80% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes hpm-dot-connecting {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 40%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes hpm-dot-connected {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 16%, transparent);
+    opacity: 1;
+  }
+}
+
+@keyframes hpm-primary-sheen {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 180% 50%;
+  }
+}
+
+@keyframes hpm-progress-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes hpm-success-check {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hpm-app *,
+  .hpm-modal * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .hpm-app .hpm-connect-bar:hover,
+  .hpm-app .hpm-fw-section:hover,
+  .hpm-app .hpm-log-card:hover,
+  .hpm-app .hpm-fw-dropzone.is-dragover {
+    transform: none;
+  }
+}
+
+[data-theme="dark"] .hpm-app {
+  --hpm-pcb-dot: color-mix(in srgb, #7fd0df 4%, transparent);
+  --hpm-verify-gradient: linear-gradient(90deg, #34d399, #10b981);
 }

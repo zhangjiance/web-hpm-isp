@@ -530,34 +530,11 @@ export class HidTransport {
   }
 
   /**
-   * Wait until the old HIDDevice object is no longer reported by getDevices().
-   * After a firmware reboot the browser usually creates a new HIDDevice object,
-   * so object identity is a reliable way to avoid reopening the old interface.
-   */
-  async _waitForDeviceRemoval(device, timeoutMs = 3000) {
-    if (!device || !navigator.hid) {
-      await delay(500);
-      return;
-    }
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      try {
-        const devices = await navigator.hid.getDevices();
-        if (!devices.includes(device)) return;
-      } catch {
-        return;
-      }
-      await delay(200);
-    }
-  }
-
-  /**
    * Wait for the device to re-enumerate after loading the bootloader firmware.
    *
-   * The ROM and the bootloader are different WebHID devices, so Chrome asks
-   * for a new permission grant. As soon as the old interface disappears we
-   * show the UI prompt; the user can select Boot Firmware Open immediately.
-   * A background poll still auto-connects if the device was already granted.
+   * Use the WebHID 'connect' event for authorized re-enumeration and keep a
+   * short polling fallback. If the old interface is still present, reuse it.
+   * The permission prompt is only shown when neither path can find a device.
    */
   async reconnectAfterReboot(timeoutMs = 5 * 60 * 1000) {
     const vid = this.vid;
@@ -576,20 +553,45 @@ export class HidTransport {
     this.log('info', 'Waiting for HID re-enumeration...');
 
     try {
-      // Wait until the old ROM interface is gone; this is usually quick.
-      await this._waitForDeviceRemoval(oldDevice, 2000);
-      await delay(300);
-
-      // Give an already-authorized device one immediate chance. On later
-      // flashes Chrome may still remember the Boot Firmware permission.
+      // Check the immediate state first. Older ROM versions may keep the same
+      // HID interface and never remove it, so do not wait for a fixed grace
+      // period when it is still present.
+      await delay(120);
       let device = await this._findReenumeratedDevice(vid, pid, oldDevice);
+
       if (!device) {
-        // Prompt right away instead of waiting 20 seconds.
+        // Give a re-enumerating device a very short window to disappear. If
+        // it did not, try the same HIDDevice object directly: some ROMs keep
+        // the same interface without re-enumerating. Do not depend on
+        // getDevices() here, because Chrome can hide a just-closed device
+        // from that list even though it can be opened again.
+        await delay(180);
+        device = await this._findReenumeratedDevice(vid, pid, oldDevice);
+        if (!device) {
+          try {
+            this.device = oldDevice;
+            this.queue = new ReportQueue();
+            await this.open();
+            await delay(100);
+            this.log('info', 'HID device did not re-enumerate; continuing on the current interface');
+            return;
+          } catch (error) {
+            this.log('warn', `Could not reopen current HID interface: ${error.message}`);
+            this.queue = new ReportQueue();
+          }
+        }
+      }
+
+      if (!device) {
+        // The old interface cannot be reopened and no authorized replacement
+        // is present. WebHID will not reveal a new Boot Firmware interface
+        // until the user grants permission, so asking now is faster than
+        // polling for a fixed grace period.
         this.onReconnectNeeded();
         this.log(
           'warn',
-          'Device re-enumerated. Select Boot Firmware Open in the dialog ' +
-            '(VID 0x34b7 / PID 0x0005); if it is not listed yet, wait 1-2 seconds and try again.',
+          'A new HID bootloader interface is required. Select Boot Firmware Open ' +
+            '(VID 0x34b7; the PID depends on the SoC); if it is not listed yet, wait 1-2 seconds and try again.',
         );
       }
 
@@ -619,7 +621,7 @@ export class HidTransport {
       this.queue = new ReportQueue();
       await this.open();
       // Give the freshly enumerated firmware a moment before the first command.
-      await delay(300);
+      await delay(100);
       this.log('info', 'HID device reconnected');
     } finally {
       this._reconnectInProgress = false;

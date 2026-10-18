@@ -5,6 +5,7 @@ import {
   buildEraseRegion,
   buildLoadImageChunk,
   buildQueryRte,
+  buildReadMemory,
   buildReset,
   buildVerifyChecksum,
   buildWriteMemoryContinuation,
@@ -120,6 +121,24 @@ export class RomClient {
     };
   }
 
+  async getMemoryProperties(memoryId, timeoutMs = this.defaultTimeout) {
+    const response = await this.queryRte(4, memoryId, timeoutMs);
+    if (response.data.length < 32) {
+      throw new RomError(`Invalid memory property length: ${response.data.length}`);
+    }
+    return {
+      words: response.data[0],
+      memoryUnit: response.data[1],
+      memoryId: readU32(response.data, 4),
+      startAddress: readU32(response.data, 8),
+      endAddress: readU32(response.data, 12),
+      memorySize: readU32(response.data, 16),
+      pageSize: readU32(response.data, 20),
+      sectorSize: readU32(response.data, 24),
+      blockSize: readU32(response.data, 28),
+    };
+  }
+
   async getSupportedCommands(timeoutMs = this.defaultTimeout) {
     if (this.commandMaskUnsupported) {
       throw new RomError('This ROM does not support Query RTE 5', 1002000);
@@ -184,6 +203,37 @@ export class RomClient {
       }
     }
     this.log('info', 'Firmware load complete');
+  }
+
+  async readMemory(
+    memoryId,
+    address,
+    length,
+    onProgress = () => {},
+    timeoutMs = this.defaultTimeout,
+  ) {
+    if (!length) return new Uint8Array(0);
+    await this._sendCommand(buildReadMemory(memoryId, address, length), timeoutMs);
+    const initial = await this._getResponse(timeoutMs);
+    this._expectOk(initial, 'Read memory');
+
+    const result = new Uint8Array(length);
+    let offset = 0;
+    while (offset < length) {
+      this._checkCancel();
+      // Read data packets have a 4-byte header followed by the payload.
+      // The initial command response above only carries the status.
+      const packet = await this.transport.receive(timeoutMs);
+      if (!packet || packet.length <= 4) {
+        throw new RomError(`Invalid read data packet (${packet?.length ?? 0} bytes)`);
+      }
+      const chunk = packet.subarray(4);
+      const count = Math.min(chunk.length, length - offset);
+      result.set(chunk.subarray(0, count), offset);
+      offset += count;
+      onProgress(offset, length);
+    }
+    return result;
   }
 
   async configRte(speed, timeoutMs = this.defaultTimeout) {

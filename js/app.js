@@ -7,13 +7,52 @@ import {
   RomError,
   TimeoutError,
   TransportError,
+  bytesHex,
   formatBytesCount,
   hex0x,
   isSecureContextOk,
   parseNumber,
   parseU32,
   parseWordList,
+  wordsToBytes,
 } from './util.js';
+
+// Command ID 0x0A (verify-checksum) is advertised by bl_fw but not by the
+// bare boot ROM. It is a more reliable "firmware already loaded" signal than
+// Load Image support, because bl_fw still advertises load-image.
+const BOOTLOADER_VERIFY_CHECKSUM_BIT = 1 << 10;
+const BOOTLOADER_VERSION_PREFIX = 0x46; // ASCII 'F' in the encoded ROM version
+const MIN_SOC_REVISIONS = {
+  HPM6700_HPM6400: [1, 1, 0],
+};
+
+// Bit names used by the official GUI for Query RTE 5's command mask.
+const ROM_SUPPORTED_COMMANDS = [
+  [1 << 1, 'query-rte'],
+  [1 << 2, 'config-memory'],
+  [1 << 3, 'write-memory'],
+  [1 << 4, 'read-memory'],
+  [1 << 5, 'load-image'],
+  [1 << 6, 'load-blfw'],
+  [1 << 7, 'erase-region'],
+  [1 << 8, 'erase-chip'],
+  [1 << 9, 'reset'],
+  [1 << 10, 'verify-checksum'],
+];
+
+// HID product IDs from the official GUI configuration; PID is paired with
+// the SoC series. Keep this in sync with SOC_FIRMWARE.
+const SOC_HID_PID = {
+  HPM6700_HPM6400: 0x0001,
+  HPM6300: 0x0002,
+  HPM6200: 0x0003,
+  HPM6800: 0x0004,
+  HPM5300: 0x0005,
+  HPM6E00: 0x0006,
+  HPM6P00: 0x0007,
+  HPM5E00: 0x0008,
+  HPM5100: 0x0009,
+};
 
 const SOC_FIRMWARE = {
   HPM5100: 'hpm5100_blfw_unsigned.bin',
@@ -30,6 +69,7 @@ const SOC_FIRMWARE = {
 const $ = (id) => document.getElementById(id);
 
 const els = {
+  hpmApp: $('hpmApp'),
   browserBadge: $('browserBadge'),
   warningBanner: $('warningBanner'),
   transportSelect: $('transportSelect'),
@@ -39,6 +79,7 @@ const els = {
   hidAllDevices: $('hidAllDevices'),
   connectBtn: $('connectBtn'),
   hidReconnectModal: $('hidReconnectModal'),
+  hidReconnectHint: $('hidReconnectHint'),
   hidReconnectModalBtn: $('hidReconnectModalBtn'),
   hidReconnectCancelBtn: $('hidReconnectCancelBtn'),
   hidReconnectCloseBtn: $('hidReconnectCloseBtn'),
@@ -64,6 +105,7 @@ const els = {
   cfgFlashSize: $('cfgFlashSize'),
   connState: $('connState'),
   connDetail: $('connDetail'),
+  connectHint: $('connectHint'),
   socSelect: $('socSelect'),
   address: $('address'),
   configWords: $('configWords'),
@@ -78,7 +120,28 @@ const els = {
   progressText: $('progressText'),
   percentText: $('percentText'),
   flashBtn: $('flashBtn'),
+  readFlashBtn: $('readFlashBtn'),
+  eraseChipBtn: $('eraseChipBtn'),
   cancelBtn: $('cancelBtn'),
+  readFlashModal: $('readFlashModal'),
+  readFlashCloseBtn: $('readFlashCloseBtn'),
+  readDetectInfo: $('readDetectInfo'),
+  readDetectBtn: $('readDetectBtn'),
+  readAddress: $('readAddress'),
+  readLength: $('readLength'),
+  readStartBtn: $('readStartBtn'),
+  readCancelBtn: $('readCancelBtn'),
+  eraseChipModal: $('eraseChipModal'),
+  eraseChipCloseBtn: $('eraseChipCloseBtn'),
+  eraseTarget: $('eraseTarget'),
+  eraseDetectInfo: $('eraseDetectInfo'),
+  eraseDetectBtn: $('eraseDetectBtn'),
+  eraseAddress: $('eraseAddress'),
+  eraseLength: $('eraseLength'),
+  eraseRangeHint: $('eraseRangeHint'),
+  eraseStartBtn: $('eraseStartBtn'),
+  eraseCancelBtn: $('eraseCancelBtn'),
+  logSuccessTitle: $('logSuccessTitle'),
   log: $('log'),
   logSuccess: $('logSuccess'),
   logSuccessDetail: $('logSuccessDetail'),
@@ -86,6 +149,8 @@ const els = {
   debugLog: $('debugLog'),
   clearLogBtn: $('clearLogBtn'),
 };
+
+let detectedXpi = null;
 
 const state = {
   transport: null,
@@ -98,6 +163,7 @@ const state = {
   cancelRequested: false,
   reconnecting: false,
   flashSucceeded: false,
+  verifySupported: true,
   firmwareCache: new Map(),
   logCount: 0,
 };
@@ -149,38 +215,74 @@ function setConnectingState(text) {
   updateUi();
 }
 
-function showLogSuccess(detail) {
+function showLogSuccess(title, detail) {
   if (!els.logSuccess) return;
+  if (els.logSuccessTitle) els.logSuccessTitle.textContent = title || 'Success';
   if (els.logSuccessDetail) els.logSuccessDetail.textContent = detail || '';
   els.logSuccess.hidden = false;
+  els.hpmApp?.classList.add('is-success');
 }
 
 function hideLogSuccess() {
   if (els.logSuccess) els.logSuccess.hidden = true;
+  els.hpmApp?.classList.remove('is-success');
 }
 
 function setImageFileName(name) {
   if (!els.imageFileName) return;
   els.imageFileName.textContent = name || 'No file selected';
   els.imageFileName.classList.toggle('has-file', !!name);
+  els.imageDropZone?.classList.toggle('has-file', !!name);
 }
 
-function setProgress(percent, text) {
+function setProgress(percent, text, phase = 'write') {
   const value = Math.max(0, Math.min(100, Math.round(percent)));
   els.progressBar.style.width = `${value}%`;
   els.percentText.textContent = `${value}%`;
   if (text) els.progressText.textContent = text;
+  els.progressSection?.classList.toggle('is-verify', phase === 'verify');
 }
 
-function setBusy(busy) {
+function setBusy(busy, options = {}) {
   state.busy = busy;
-  if (els.progressSection) els.progressSection.hidden = !busy;
-  if (els.cancelBtn) els.cancelBtn.hidden = !busy;
+  if (busy) hideLogSuccess();
+  if (els.progressSection) {
+    els.progressSection.hidden = !busy;
+    if (busy) els.progressSection.classList.remove('is-verify');
+    els.progressSection.classList.toggle(
+      'is-indeterminate',
+      !!(busy && options.indeterminate),
+    );
+  }
+  if (els.cancelBtn) {
+    els.cancelBtn.hidden = !busy || options.cancellable === false;
+  }
   updateUi();
+}
+
+function setIndeterminateProgress(text) {
+  if (els.progressText) els.progressText.textContent = text;
+  if (els.percentText) els.percentText.textContent = '…';
+  if (els.progressBar) els.progressBar.style.width = '35%';
 }
 
 function showHidReconnectModal() {
   if (!els.hidReconnectModal) return;
+  if (els.hidReconnectHint) {
+    const productId = els.hidAllDevices.checked
+      ? null
+      : SOC_HID_PID[els.socSelect.value];
+    if (productId !== null && productId !== undefined) {
+      els.hidReconnectHint.textContent =
+        `Select the device whose product name is Boot Firmware Open ` +
+        `(VID 0x34b7, PID 0x${productId.toString(16).padStart(4, '0')}). ` +
+        `If it is not listed yet, wait 1-2 seconds and try again.`;
+    } else {
+      els.hidReconnectHint.textContent =
+        'Select the device whose product name is Boot Firmware Open. ' +
+        'If it is not listed yet, wait 1-2 seconds and try again.';
+    }
+  }
   els.hidReconnectModal.hidden = false;
   els.hidReconnectModalBtn?.focus();
 }
@@ -204,13 +306,22 @@ function imageTypeLabel() {
 
 function getHidFilters() {
   if (els.hidAllDevices.checked) return [];
-  return [{ vendorId: 0x34b7 }];
+  const productId = SOC_HID_PID[els.socSelect.value];
+  return productId === undefined
+    ? [{ vendorId: 0x34b7 }]
+    : [{ vendorId: 0x34b7, productId }];
 }
 
 function updateUi() {
   const isHid = getTransportType() === 'hid';
   const connected = !!state.transport;
   const locked = state.busy || connected || state.connecting;
+
+  els.hpmApp?.classList.toggle('is-connecting', state.connecting);
+  els.hpmApp?.classList.toggle('is-connected', connected && !state.connecting);
+  els.hpmApp?.classList.toggle('is-busy', state.busy);
+  els.connState.classList.toggle('is-connecting', state.connecting);
+  els.connState.classList.toggle('is-connected', connected && !state.connecting);
 
   // UART needs a baud rate; HID needs the optional broad endpoint filter.
   els.baudField.hidden = isHid;
@@ -222,14 +333,14 @@ function updateUi() {
     : connected
       ? 'Disconnect'
       : 'Connect';
-  els.connectBtn.className = connected ? 'danger' : 'primary';
+  els.connectBtn.className = connected && !state.connecting ? 'danger' : 'primary';
   els.transportSelect.disabled = locked;
   els.socSelect.disabled = locked;
   els.serialBaud.disabled = locked;
   els.hidAllDevices.disabled = locked;
-  els.flashBtn.disabled = state.busy || !connected || !state.image;
+  els.flashBtn.disabled = state.busy || state.connecting || !connected || !state.image;
   els.flashBtn.title = state.busy
-    ? 'Programming in progress'
+    ? 'Another operation is in progress'
     : state.connecting
       ? 'Connecting to device...'
       : !connected
@@ -237,7 +348,39 @@ function updateUi() {
         : !state.image
           ? 'Select an image first'
           : 'Program the selected image';
+  els.readFlashBtn.disabled = state.busy || state.connecting || !connected;
+  els.readFlashBtn.title = state.busy
+    ? 'Another operation is in progress'
+    : state.connecting
+      ? 'Connecting to device...'
+      : !connected
+        ? 'Connect a device first'
+        : 'Read XPI0 NOR flash to a .bin file';
+  els.eraseChipBtn.disabled = state.busy || state.connecting || !connected;
+  els.eraseChipBtn.title = state.busy
+    ? 'Another operation is in progress'
+    : state.connecting
+      ? 'Connecting to device...'
+      : !connected
+        ? 'Connect a device first'
+        : 'Erase XPI0 NOR (full chip or a custom range)';
   els.cancelBtn.disabled = !state.busy;
+
+  if (els.verifyAfter) {
+    els.verifyAfter.disabled = false;
+    els.verifyAfter.title = state.verifySupported
+      ? 'Verify after write'
+      : 'Hardware verify is unsupported; read-back verification will be used';
+  }
+
+  if (els.connectHint) {
+    els.connectHint.textContent =
+      state.busy || state.connecting || connected
+        ? ''
+        : !els.socSelect.value
+          ? 'Select a SoC to enable Connect.'
+          : 'Click Connect to start.';
+  }
 
   if (state.connecting) {
     els.connState.textContent = 'Connecting...';
@@ -264,8 +407,10 @@ async function queryDeviceInfo(client) {
     const info = await client.getRomInfo(3000);
     log(
       'info',
-      `ROM: version=0x${info.romVersion.toString(16)} ` +
-        `revision=0x${info.socRevision.toString(16)} ` +
+      `ROM: version=${encodedVersionText(info.romVersion)} ` +
+        `(0x${info.romVersion.toString(16)}) ` +
+        `revision=${encodedVersionText(info.socRevision)} ` +
+        `(0x${info.socRevision.toString(16)}) ` +
         `lifeCycle=${info.lifeCycle} features=0x${info.features.toString(16)}`,
     );
   } catch (error) {
@@ -274,8 +419,98 @@ async function queryDeviceInfo(client) {
   try {
     const mask = await client.getSupportedCommands(3000);
     log('info', `Supported command mask: ${hex0x(mask, 8)}`);
+    const commands = ROM_SUPPORTED_COMMANDS
+      .filter(([bit]) => (mask & bit) !== 0)
+      .map(([, name]) => name);
+    log(
+      'info',
+      `Supported commands:\n${commands.length ? commands.join('\n') : '(none)'}`,
+    );
+    const knownMask = ROM_SUPPORTED_COMMANDS.reduce((value, [bit]) => value | bit, 0);
+    const unknownMask = mask & ~knownMask;
+    if (unknownMask) {
+      log('debug', `Unknown supported-command bits: ${hex0x(unknownMask, 8)}`);
+    }
   } catch (error) {
     log('debug', `Failed to query supported commands: ${error.message}`);
+  }
+}
+
+function encodedVersionParts(value) {
+  return [
+    (value >>> 16) & 0xff,
+    (value >>> 8) & 0xff,
+    value & 0xff,
+  ];
+}
+
+function encodedVersionText(value) {
+  const prefix = String.fromCharCode((value >>> 24) & 0xff);
+  const [major, minor, patch] = encodedVersionParts(value);
+  return `${prefix}${major}.${minor}.${patch}`;
+}
+
+function versionAtLeast(value, min) {
+  const parts = encodedVersionParts(value);
+  for (let index = 0; index < min.length; index += 1) {
+    if (parts[index] > min[index]) return true;
+    if (parts[index] < min[index]) return false;
+  }
+  return true;
+}
+
+async function detectBootloaderFirmware(client, timeoutMs = 2000) {
+  let info = null;
+  try {
+    info = await client.getRomInfo(timeoutMs);
+  } catch (error) {
+    log('debug', `Cannot query ROM version while detecting bl_fw: ${error.message}`);
+  }
+
+  // The official GUI treats a ROM version starting with "F" as bl_fw and a
+  // version starting with "V" as the bare boot ROM. The encoded version is
+  // four bytes: prefix, major, minor, patch.
+  if (info && ((info.romVersion >>> 24) & 0xff) === BOOTLOADER_VERSION_PREFIX) {
+    return {
+      known: true,
+      active: true,
+      reason: 'firmware-version',
+      verifySupported: true,
+      info,
+      mask: null,
+    };
+  }
+
+  const minSocRevision = MIN_SOC_REVISIONS[els.socSelect.value];
+  if (info && minSocRevision && !versionAtLeast(info.socRevision, minSocRevision)) {
+    log(
+      'warn',
+      `Current SoC revision ${encodedVersionText(info.socRevision)} is below the minimum ` +
+        `${minSocRevision.join('.')}; using the bare ROM and skipping bl_fw load.`,
+    );
+    return {
+      known: true,
+      active: true,
+      reason: 'min-soc-revision',
+      verifySupported: false,
+      info,
+      mask: null,
+    };
+  }
+
+  try {
+    const mask = await client.getSupportedCommands(timeoutMs);
+    return {
+      known: true,
+      active: (mask & BOOTLOADER_VERIFY_CHECKSUM_BIT) !== 0,
+      reason: 'command-mask',
+      verifySupported: (mask & BOOTLOADER_VERIFY_CHECKSUM_BIT) !== 0,
+      info,
+      mask,
+    };
+  } catch (error) {
+    log('debug', `Cannot determine whether bl_fw is loaded: ${error.message}`);
+    return { known: false, active: false, verifySupported: false, info, mask: null };
   }
 }
 
@@ -344,40 +579,67 @@ async function connectSerial() {
       await client.getRomInfo(3000);
     }
 
-    // Load bl_fw immediately: it is a RAM image and does not depend on the
-    // user's Flash image or configuration words.
-    const firmware = await getFirmware(els.socSelect.value);
-    setStatusDetail(`Loading bl_fw at ${targetBaud} bps...`, '');
-    log('info', `Loading bl_fw at ${targetBaud} bps...`);
-    let lastPercent = -1;
-    await client.loadImage(firmware, (done, total) => {
-      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-      if (percent === 100 || percent >= lastPercent + 10) {
-        lastPercent = percent;
-        setStatusDetail(`Loading bl_fw... ${percent}%`, '');
+    const bootloaderState = await detectBootloaderFirmware(client);
+    const bootloaderAlreadyLoaded = bootloaderState.known && bootloaderState.active;
+
+    if (bootloaderAlreadyLoaded) {
+      // Reconnecting after a normal disconnect leaves bl_fw running in RAM.
+      // Do not execute Load Image again; it is not valid after bl_fw starts.
+      log('info', 'Bootloader firmware already loaded; skipping bl_fw load');
+      setStatusDetail('Bootloader already running', '');
+      if (targetBaud !== transport.baudRate) {
+        client = await switchBootloaderBaud(transport, client, targetBaud);
+      } else {
+        setStatusDetail(`Bootloader · ${transport.baudRate} bps`, '');
       }
-    });
-    log('info', 'Firmware load complete; waiting for bootloader');
-
-    await new Promise((resolve) => setTimeout(resolve, 600));
-
-    // bl_fw starts its own UART at 115200. Connect there first, then ask the
-    // bootloader to switch to the user-selected rate for programming.
-    setStatusDetail('Waiting for bootloader at 115200 bps...', '');
-    await transport.reopen(115200);
-    client = makeClient(transport);
-    await client.waitForBootloader(15000);
-
-    if (targetBaud !== 115200) {
-      client = await switchBootloaderBaud(transport, client, targetBaud);
     } else {
-      setStatusDetail('Bootloader · 115200 bps', '');
+      if (bootloaderState.known) {
+        log('info', 'Bare ROM detected; loading bl_fw');
+      } else {
+        log('debug', 'Bootloader state unknown; loading bl_fw');
+      }
+
+      // bl_fw is a RAM image and does not depend on the user's Flash image or
+      // configuration words.
+      const firmware = await getFirmware(els.socSelect.value);
+      setStatusDetail(`Loading bl_fw at ${targetBaud} bps...`, '');
+      log('info', `Loading bl_fw at ${targetBaud} bps...`);
+      let lastPercent = -1;
+      await client.loadImage(firmware, (done, total) => {
+        const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+        if (percent === 100 || percent >= lastPercent + 10) {
+          lastPercent = percent;
+          setStatusDetail(`Loading bl_fw... ${percent}%`, '');
+        }
+      });
+      log('info', 'Firmware load complete; waiting for bootloader');
+
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      // bl_fw starts its own UART at 115200. Connect there first, then ask the
+      // bootloader to switch to the user-selected rate for programming.
+      setStatusDetail('Waiting for bootloader at 115200 bps...', '');
+      await transport.reopen(115200);
+      client = makeClient(transport);
+      await client.waitForBootloader(15000);
+
+      if (targetBaud !== 115200) {
+        client = await switchBootloaderBaud(transport, client, targetBaud);
+      } else {
+        setStatusDetail('Bootloader · 115200 bps', '');
+      }
     }
 
     const activeBaud = transport.baudRate;
     state.transport = transport;
     state.client = client;
     state.bootloaderReady = true;
+    state.verifySupported = bootloaderAlreadyLoaded
+      ? bootloaderState.verifySupported !== false
+      : true;
+    if (!state.verifySupported) {
+      log('warn', 'verify-checksum is unavailable; Verify will use read-back comparison.');
+    }
     state.connecting = false;
     setStatusDetail(`Bootloader · ${activeBaud} bps`, '');
     log('success', `Bootloader connected at ${activeBaud} bps`);
@@ -386,6 +648,7 @@ async function connectSerial() {
   } catch (error) {
     log('error', `Serial connection failed: ${error.message}`);
     state.connecting = false;
+    state.verifySupported = true;
     setStatusDetail(`Connection failed: ${error.message}`, 'error');
     try {
       await transport.close();
@@ -425,24 +688,103 @@ async function connectHid() {
       showHidReconnectModal();
     },
   });
+
   try {
     setConnectingState('Opening HID device...');
     await transport.open();
+    // Set the transport now so the re-enumeration dialog can reopen this
+    // session while bl_fw is being loaded.
     state.transport = transport;
     state.client = makeClient(transport);
     state.bootloaderReady = false;
-    state.connecting = false;
+    updateUi();
+
+    const hidName = transport.device?.productName || '';
+    const namedAsBootloader = /boot\s*firmware|bootloader|firmware open/i.test(hidName);
+    const bootloaderState = namedAsBootloader
+      ? { known: true, active: true }
+      : await detectBootloaderFirmware(state.client);
+
+    if (bootloaderState.known && bootloaderState.active) {
+      // Same HID PID is used by the ROM and bl_fw. The version prefix,
+      // verify-checksum support, or the device name can identify bl_fw.
+      if (namedAsBootloader) {
+        log('info', `HID device name indicates bootloader: ${hidName}`);
+      }
+      log('info', 'HID bootloader firmware already loaded; skipping bl_fw load');
+      setStatusDetail('Waiting for bootloader...', '');
+      await state.client.waitForBootloader(5000);
+      state.bootloaderReady = true;
+      state.verifySupported = bootloaderState.verifySupported !== false;
+      if (!state.verifySupported) {
+        log('warn', 'verify-checksum is unavailable; Verify will use read-back comparison.');
+      }
+      state.connecting = false;
+    } else {
+      log('info', 'HID is running bare ROM; loading bl_fw');
+      const firmware = await getFirmware(els.socSelect.value);
+      setStatusDetail('Loading bl_fw over HID...', '');
+      log('info', `Loading bl_fw over HID (${formatBytesCount(firmware.length)})...`);
+      let lastPercent = -1;
+      await state.client.loadImage(firmware, (done, total) => {
+        const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+        if (percent === 100 || percent >= lastPercent + 10) {
+          lastPercent = percent;
+          setStatusDetail(`Loading bl_fw... ${percent}%`, '');
+        }
+      });
+
+      log('info', 'Firmware load complete; waiting for HID re-enumeration');
+      setStatusDetail('Waiting for HID re-enumeration...', '');
+      state.reconnecting = true;
+      updateUi();
+      try {
+        await transport.reconnectAfterReboot();
+      } finally {
+        hideHidReconnectModal();
+        state.reconnecting = false;
+        updateUi();
+      }
+
+      state.client = makeClient(transport);
+      setStatusDetail('Waiting for bootloader...', '');
+      await state.client.waitForBootloader(15000);
+      state.bootloaderReady = true;
+      state.verifySupported = true;
+      state.connecting = false;
+    }
+
+    const activeDevice = transport.device || device;
     setStatusDetail(
-      `${device.productName || 'HID device'} · ` +
-        `0x${device.vendorId.toString(16)}:0x${device.productId.toString(16)}`,
+      `${activeDevice.productName || 'HID device'} · ` +
+        `0x${activeDevice.vendorId.toString(16)}:0x${activeDevice.productId.toString(16)}`,
     );
-    log('success', `HID connected: VID=0x${device.vendorId.toString(16)} PID=0x${device.productId.toString(16)}`);
+    log(
+      'success',
+      `HID bootloader connected: VID=0x${activeDevice.vendorId.toString(16)} ` +
+        `PID=0x${activeDevice.productId.toString(16)}`,
+    );
     updateUi();
     await queryDeviceInfo(state.client);
   } catch (error) {
-    log('error', `HID connection failed: ${error.message}`);
+    const cancelled = state.cancelRequested || error instanceof AbortError;
+    if (cancelled) {
+      log('warn', 'HID connection cancelled');
+    } else {
+      log('error', `HID connection failed: ${error.message}`);
+    }
     state.connecting = false;
-    setStatusDetail(`Connection failed: ${error.message}`, 'error');
+    state.reconnecting = false;
+    state.cancelRequested = false;
+    state.transport = null;
+    state.client = null;
+    state.bootloaderReady = false;
+    state.verifySupported = true;
+    hideHidReconnectModal();
+    setStatusDetail(
+      cancelled ? 'Connection cancelled' : `Connection failed: ${error.message}`,
+      cancelled ? '' : 'error',
+    );
     try {
       await transport.close();
     } catch {
@@ -458,8 +800,16 @@ async function reconnectHid() {
     await connectHid();
     return;
   }
+  const expectedPid = els.hidAllDevices.checked
+    ? undefined
+    : SOC_HID_PID[els.socSelect.value];
   const filters = transport.isReconnecting
-    ? [{ vendorId: transport.vid }]
+    ? [
+        {
+          vendorId: transport.vid,
+          ...(expectedPid !== undefined ? { productId: expectedPid } : {}),
+        },
+      ]
     : [{ vendorId: transport.vid, productId: transport.pid }];
   let devices;
   try {
@@ -495,11 +845,14 @@ async function reconnectHid() {
 
 async function disconnectDevice() {
   hideHidReconnectModal();
+  closeReadFlashDialog();
+  closeEraseChipDialog();
   if (!state.transport) return;
   const transport = state.transport;
   state.transport = null;
   state.client = null;
   state.bootloaderReady = false;
+  state.verifySupported = true;
   try {
     await transport.close();
   } catch {
@@ -592,6 +945,10 @@ function onImageTypeChange() {
   refreshImage();
 }
 
+// Unique option[4] values from hpm_sdk/boards/*evk*/board.c:
+//   HPM5100EVK, HPM5300EVK, HPM5301EVKLite, HPM5E00EVK, HPM6P00EVK
+//   HPM6200EVK, HPM6300EVK, HPM6800EVK, HPM6E00EVK
+//   HPM6750EVK2, HPM6750EVKMINI
 const FLASH_CONFIG_PRESETS = {
   hpm5300evk: [0xfcf90002, 0x00000005, 0x00001000, 0x00000000],
   typical_a0: [0xfcf90001, 0x00000007, 0x00000000, 0x00000000],
@@ -830,9 +1187,13 @@ function initImageDropZone() {
 
 function cancelFlash() {
   hideHidReconnectModal();
-  if (!state.busy) return;
+  if (!state.busy && !state.connecting) return;
   state.cancelRequested = true;
   state.transport?.cancelReconnect?.();
+  if (state.connecting) {
+    log('warn', 'Connection cancelled');
+    return;
+  }
   log('warn', 'Cancel requested; stopping after the current packet');
 }
 
@@ -874,6 +1235,372 @@ async function switchBootloaderBaud(transport, client, baud) {
   }
 }
 
+async function configureFlashAccess(client) {
+  const words = parseWordList(els.configWords.value);
+  if (words.length !== 4) {
+    throw new Error('Flash Configuration Words must contain exactly four 32-bit words');
+  }
+  const configBytes = wordsToBytes(words);
+  log('info', `Using Flash Configuration Words: ${configWordsToText(words)}`);
+  await client.writeMemory(MEM.ILM, 0x200, configBytes, () => {}, 10000);
+  await client.configMemory(MEM.XPI0_NOR, 0x200);
+}
+
+async function sha256Hex(data) {
+  try {
+    if (!globalThis.crypto?.subtle) return null;
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', data);
+    return bytesHex(new Uint8Array(digest), 32);
+  } catch {
+    return null;
+  }
+}
+
+function downloadBytes(data, filename) {
+  const blob = new Blob([data], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function describeXpiMemory(info) {
+  const end = info.startAddress + info.memorySize;
+  const sector = info.sectorSize ? formatBytesCount(info.sectorSize) : 'unknown';
+  return (
+    `XPI0 NOR: ${hex0x(info.startAddress, 8)}–${hex0x((end - 1) >>> 0, 8)} · ` +
+    `${formatBytesCount(info.memorySize)} · sector ${sector}`
+  );
+}
+
+async function detectXpiMemory(client) {
+  if (!client) throw new Error('Connect a device first');
+  let info;
+  try {
+    info = await client.getMemoryProperties(MEM.XPI0_NOR, 3000);
+  } catch (firstError) {
+    // Some bootloader builds only report memory properties after XPI0 is configured.
+    await configureFlashAccess(client);
+    info = await client.getMemoryProperties(MEM.XPI0_NOR, 3000);
+  }
+  if (!info.memorySize) {
+    throw new Error('XPI0 NOR reported an empty memory size');
+  }
+  return info;
+}
+
+function applyReadDetection(info) {
+  detectedXpi = info;
+  const maxRead = Math.min(info.memorySize, 16 * 1024 * 1024);
+  els.readAddress.value = `0x${info.startAddress.toString(16)}`;
+  els.readLength.value = `0x${maxRead.toString(16)}`;
+  els.readDetectInfo.className = 'hpm-detect-info is-ok';
+  els.readDetectInfo.textContent =
+    describeXpiMemory(info) +
+    (maxRead < info.memorySize ? ' · read limited to 16 MiB' : '');
+  els.readStartBtn.disabled = false;
+}
+
+async function runReadDetection() {
+  if (!state.client) return;
+  detectedXpi = null;
+  els.readDetectBtn.disabled = true;
+  els.readStartBtn.disabled = true;
+  els.readDetectInfo.className = 'hpm-detect-info';
+  els.readDetectInfo.textContent = 'Detecting XPI0 NOR via query-rte 4...';
+  try {
+    const info = await detectXpiMemory(state.client);
+    applyReadDetection(info);
+  } catch (error) {
+    els.readDetectInfo.className = 'hpm-detect-info is-error';
+    els.readDetectInfo.textContent =
+      `Detection failed: ${error.message} · using 0x80000000 + 1 MiB`;
+    els.readAddress.value = '0x80000000';
+    els.readLength.value = '0x100000';
+    els.readStartBtn.disabled = false;
+    log('warn', `Flash size detection failed: ${error.message}`);
+  } finally {
+    els.readDetectBtn.disabled = false;
+  }
+}
+
+function openReadFlashDialog() {
+  if (!state.transport || state.busy) return;
+  detectedXpi = null;
+  els.readAddress.value = '0x80000000';
+  els.readLength.value = '0x100000';
+  els.readStartBtn.disabled = true;
+  els.readFlashModal.hidden = false;
+  els.readCancelBtn.focus();
+  runReadDetection();
+}
+
+function closeReadFlashDialog() {
+  els.readFlashModal.hidden = true;
+}
+
+function computeEraseRange() {
+  const requestedStart = parseU32(els.eraseAddress.value);
+  const requestedLength = parseU32(els.eraseLength.value);
+  if (requestedLength === 0) {
+    throw new Error('Erase length must be greater than zero');
+  }
+  if (requestedStart + requestedLength > 0x100000000) {
+    throw new Error('Erase range exceeds the 32-bit address space');
+  }
+
+  const info = detectedXpi;
+  const sectorSize = (info && info.sectorSize) || 0x1000;
+  const flashStart = info ? info.startAddress : requestedStart;
+  const flashEnd = info
+    ? info.startAddress + info.memorySize
+    : requestedStart + requestedLength;
+
+  let start = Math.floor(requestedStart / sectorSize) * sectorSize;
+  let end = Math.ceil((requestedStart + requestedLength) / sectorSize) * sectorSize;
+  if (info) {
+    if (start < flashStart) start = flashStart;
+    if (end > flashEnd) end = flashEnd;
+  }
+  if (end <= start) {
+    throw new Error('Erase range is outside the detected XPI0 NOR area');
+  }
+
+  const length = end - start;
+  return {
+    start: start >>> 0,
+    length: length >>> 0,
+    sectorSize,
+    full: !!info && start === info.startAddress && length === info.memorySize,
+    requestedStart,
+    requestedLength,
+  };
+}
+
+function updateEraseRangeHint() {
+  try {
+    const range = computeEraseRange();
+    els.eraseStartBtn.disabled = false;
+    els.eraseRangeHint.className = 'hpm-erase-range-hint';
+    if (range.full) {
+      els.eraseRangeHint.classList.add('is-full');
+      els.eraseRangeHint.textContent =
+        `Full chip erase: start ${hex0x(range.start, 8)}, ` +
+        `length ${hex0x(range.length, 8)} (${formatBytesCount(range.length)}).`;
+    } else {
+      let text =
+        `Aligned to ${formatBytesCount(range.sectorSize)} sectors: ` +
+        `start ${hex0x(range.start, 8)}, length ${hex0x(range.length, 8)} ` +
+        `(${formatBytesCount(range.length)}).`;
+      if (
+        range.start !== range.requestedStart ||
+        range.length !== range.requestedLength
+      ) {
+        text +=
+          ` Input ${hex0x(range.requestedStart, 8)} + ` +
+          `${hex0x(range.requestedLength, 8)} was aligned/clamped.`;
+      }
+      if (!detectedXpi) {
+        text += ' Flash size detection failed; using the manual range.';
+      }
+      els.eraseRangeHint.textContent = text;
+    }
+  } catch (error) {
+    els.eraseStartBtn.disabled = true;
+    els.eraseRangeHint.className = 'hpm-erase-range-hint is-error';
+    els.eraseRangeHint.textContent = error.message;
+  }
+}
+
+function applyEraseDetection(info) {
+  detectedXpi = info;
+  els.eraseAddress.value = `0x${info.startAddress.toString(16)}`;
+  els.eraseLength.value = `0x${info.memorySize.toString(16)}`;
+  els.eraseDetectInfo.className = 'hpm-detect-info is-ok';
+  els.eraseDetectInfo.textContent = describeXpiMemory(info);
+  updateEraseRangeHint();
+}
+
+async function runEraseDetection() {
+  if (!state.client) return;
+  detectedXpi = null;
+  els.eraseDetectBtn.disabled = true;
+  els.eraseStartBtn.disabled = true;
+  els.eraseDetectInfo.className = 'hpm-detect-info';
+  els.eraseDetectInfo.textContent = 'Detecting XPI0 NOR via query-rte 4...';
+  try {
+    const info = await detectXpiMemory(state.client);
+    applyEraseDetection(info);
+  } catch (error) {
+    els.eraseDetectInfo.className = 'hpm-detect-info is-error';
+    els.eraseDetectInfo.textContent =
+      `Detection failed: ${error.message} · enter the range manually`;
+    els.eraseAddress.value = '0x80000000';
+    els.eraseLength.value = '0x100000';
+    updateEraseRangeHint();
+    log('warn', `Flash size detection failed: ${error.message}`);
+  } finally {
+    els.eraseDetectBtn.disabled = false;
+  }
+}
+
+function openEraseChipDialog() {
+  if (!state.transport || state.busy) return;
+  detectedXpi = null;
+  els.eraseAddress.value = '0x80000000';
+  els.eraseLength.value = '0x100000';
+  els.eraseStartBtn.disabled = true;
+  els.eraseTarget.textContent = `XPI0 NOR · ${els.socSelect.value || 'Unknown SoC'}`;
+  els.eraseDetectInfo.className = 'hpm-detect-info';
+  els.eraseDetectInfo.textContent = 'Detecting XPI0 NOR...';
+  els.eraseRangeHint.className = 'hpm-erase-range-hint';
+  els.eraseRangeHint.textContent = '';
+  els.eraseChipModal.hidden = false;
+  els.eraseCancelBtn.focus();
+  runEraseDetection();
+}
+
+function closeEraseChipDialog() {
+  els.eraseChipModal.hidden = true;
+}
+
+async function startReadFlash() {
+  if (state.busy || !state.transport) return;
+
+  let address;
+  let length;
+  try {
+    address = parseU32(els.readAddress.value);
+    length = parseU32(els.readLength.value);
+    if (length === 0) throw new Error('Read length must be greater than zero');
+    if (length > 16 * 1024 * 1024) {
+      throw new Error('Read length is limited to 16 MiB in the browser tool');
+    }
+    if (address + length > 0x100000000) {
+      throw new Error('Read range exceeds the 32-bit address space');
+    }
+  } catch (error) {
+    log('error', `Invalid read range: ${error.message}`);
+    return;
+  }
+
+  closeReadFlashDialog();
+  state.cancelRequested = false;
+  setBusy(true);
+  setProgress(0, 'Preparing read...');
+
+  try {
+    const client = state.client || makeClient(state.transport);
+    log(
+      'info',
+      `Reading ${formatBytesCount(length)} from ${hex0x(address, 8)} (XPI0 NOR)...`,
+    );
+    await configureFlashAccess(client);
+    setProgress(1, 'Reading flash...');
+    const data = await client.readMemory(
+      MEM.XPI0_NOR,
+      address,
+      length,
+      (done, total) => {
+        setProgress(
+          1 + (done / total) * 99,
+          `Reading: ${formatBytesCount(done)} / ${formatBytesCount(total)}`,
+        );
+      },
+      30000,
+    );
+    setProgress(100, 'Read complete');
+
+    const digest = await sha256Hex(data);
+    if (digest) log('info', `Read SHA-256: ${digest}`);
+    const soc = (els.socSelect.value || 'hpm').toLowerCase();
+    const filename =
+      `${soc}_flash_0x${address.toString(16)}_0x${length.toString(16)}.bin`;
+    downloadBytes(data, filename);
+    log(
+      'success',
+      `Read complete: ${formatBytesCount(data.length)} from ${hex0x(address, 8)}`,
+    );
+    showLogSuccess(
+      'Read complete',
+      `${formatBytesCount(data.length)} read from ${hex0x(address, 8)}.`,
+    );
+  } catch (error) {
+    if (state.cancelRequested || error instanceof AbortError) {
+      log('warn', 'Read cancelled');
+      setProgress(0, 'Cancelled');
+    } else {
+      log('error', `Read failed: ${error.message}`);
+      if (error instanceof RomError && error.status !== null) {
+        log('error', `ROM status: 0x${error.status.toString(16)}`);
+      }
+      setProgress(0, 'Read failed');
+    }
+  } finally {
+    state.cancelRequested = false;
+    setBusy(false);
+  }
+}
+
+async function startEraseChip() {
+  if (state.busy || !state.transport) return;
+
+  let range;
+  try {
+    range = computeEraseRange();
+  } catch (error) {
+    log('error', `Invalid erase range: ${error.message}`);
+    return;
+  }
+
+  closeEraseChipDialog();
+  state.cancelRequested = false;
+  setBusy(true, { cancellable: false, indeterminate: true });
+  setIndeterminateProgress(
+    range.full ? 'Erasing entire XPI0 NOR...' : 'Erasing selected XPI0 NOR range...',
+  );
+
+  try {
+    const client = state.client || makeClient(state.transport);
+    log(
+      'warn',
+      range.full
+        ? `Erasing entire XPI0 NOR flash (${els.socSelect.value || 'unknown SoC'})...`
+        : `Erasing XPI0 NOR ${hex0x(range.start, 8)} + ${hex0x(range.length, 8)} ` +
+          `(${formatBytesCount(range.length)})...`,
+    );
+    await configureFlashAccess(client);
+    const started = Date.now();
+    if (range.full) {
+      await client.eraseAll(MEM.XPI0_NOR, 180000);
+    } else {
+      await client.eraseRegion(MEM.XPI0_NOR, range.start, range.length, 180000);
+    }
+    const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+    setProgress(100, 'Erase complete');
+    log('success', `Erase complete (${elapsed}s)`);
+    showLogSuccess(
+      'Erase complete',
+      range.full
+        ? 'Entire XPI0 NOR flash has been erased.'
+        : `${formatBytesCount(range.length)} erased from ${hex0x(range.start, 8)}.`,
+    );
+  } catch (error) {
+    log('error', `Erase failed: ${error.message}`);
+    if (error instanceof RomError && error.status !== null) {
+      log('error', `ROM status: 0x${error.status.toString(16)}`);
+    }
+    setProgress(0, 'Erase failed');
+  } finally {
+    state.cancelRequested = false;
+    setBusy(false);
+  }
+}
+
 async function flash() {
   if (state.busy) return;
   if (!state.transport) {
@@ -905,19 +1632,17 @@ async function flash() {
     setProgress(1, 'Querying device...');
     await queryDeviceInfo(client);
 
-    // Serial connections already loaded bl_fw at connect time. USB-HID still
-    // loads it here because the device re-enumerates and needs user permission.
+    // Both transports normally load bl_fw at connect time. This is a
+    // fallback for a HID session that lost its bootloader flag.
     let needLoad = false;
     if (transport.kind === 'hid' && !state.bootloaderReady) {
-      needLoad = true;
-      try {
-        const mask = await client.getSupportedCommands(3000);
-        if ((mask & (1 << 6)) === 0) {
-          needLoad = false;
-          log('info', 'Device does not support Load Image; assuming bl_fw is already loaded');
-        }
-      } catch (error) {
-        log('warn', `Cannot query supported commands; trying to load bl_fw: ${error.message}`);
+      const bootloaderState = await detectBootloaderFirmware(client, 3000);
+      if (bootloaderState.known && bootloaderState.active) {
+        state.bootloaderReady = true;
+        state.verifySupported = bootloaderState.verifySupported !== false;
+        log('info', 'HID bootloader firmware already loaded; skipping bl_fw load');
+      } else {
+        needLoad = true;
       }
     }
 
@@ -946,6 +1671,7 @@ async function flash() {
       setProgress(21, 'Waiting for bootloader...');
       await client.waitForBootloader(15000);
       state.bootloaderReady = true;
+      state.verifySupported = true;
     } else if (transport.kind === 'serial') {
       log('info', `Bootloader is ready; starting programming at ${transport.baudRate} bps`);
     } else {
@@ -970,10 +1696,64 @@ async function flash() {
       30000,
     );
 
-    // 5. Verify.
+    // 5. Verify. Use the ROM verify command when available; otherwise read
+    // the flash back and compare it byte-for-byte in the browser.
     if (els.verifyAfter.checked) {
-      setProgress(92, 'Verifying SHA-256...');
-      await client.verifyChecksum(MEM.XPI0_NOR, image.address, image.imageData, 60000);
+      if (state.verifySupported) {
+        setProgress(92, 'Verifying SHA-256...', 'verify');
+        await client.verifyChecksum(MEM.XPI0_NOR, image.address, image.imageData, 60000);
+      } else {
+        log(
+          'info',
+          'verify-checksum is unavailable; reading back the written flash for verification...',
+        );
+        setProgress(92, 'Reading back for verification...', 'verify');
+        const readback = await client.readMemory(
+          MEM.XPI0_NOR,
+          image.address,
+          image.imageData.length,
+          (done, total) => {
+            setProgress(
+              92 + (done / total) * 6,
+              `Verifying read-back: ${formatBytesCount(done)} / ${formatBytesCount(total)}`,
+              'verify',
+            );
+          },
+          60000,
+        );
+        const expectedDigest = await sha256Hex(image.imageData);
+        const readbackDigest = await sha256Hex(readback);
+        if (expectedDigest && readbackDigest && expectedDigest === readbackDigest) {
+          log('info', `Read-back SHA-256: ${readbackDigest}`);
+          setProgress(98, 'Read-back verification passed', 'verify');
+          log('success', 'Read-back verification passed');
+        } else {
+          // Hash mismatch (or hashing unavailable): locate the first byte
+          // difference so the user knows where programming failed.
+          let mismatch = -1;
+          for (let index = 0; index < readback.length; index += 1) {
+            if (readback[index] !== image.imageData[index]) {
+              mismatch = index;
+              break;
+            }
+          }
+          if (mismatch >= 0) {
+            throw new Error(
+              `Read-back verification failed at ${hex0x(image.address + mismatch, 8)} ` +
+                `(expected 0x${image.imageData[mismatch].toString(16).padStart(2, '0')}, ` +
+                `got 0x${readback[mismatch].toString(16).padStart(2, '0')})`,
+            );
+          }
+          if (expectedDigest && readbackDigest) {
+            throw new Error(
+              `Read-back SHA-256 mismatch (expected ${expectedDigest}, got ${readbackDigest})`,
+            );
+          }
+          // SHA-256 is unavailable but the byte comparison passed.
+          setProgress(98, 'Read-back verification passed', 'verify');
+          log('success', 'Read-back verification passed (byte comparison)');
+        }
+      }
     }
 
     // 6. Reset.
@@ -990,8 +1770,11 @@ async function flash() {
     setProgress(100, 'Programming complete');
     log('success', '========== Programming complete ==========');
     showLogSuccess(
+      'Programming complete',
       els.verifyAfter.checked
-        ? 'Image written and verified successfully.'
+        ? state.verifySupported
+          ? 'Image written and verified successfully.'
+          : 'Image written and read-back verified successfully.'
         : 'Image written successfully.',
     );
   } catch (error) {
@@ -1099,8 +1882,13 @@ function init() {
     if (field.type === 'number') field.addEventListener('input', markCustom);
   }
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && els.flashConfigModal && !els.flashConfigModal.hidden) {
+    if (event.key !== 'Escape') return;
+    if (els.flashConfigModal && !els.flashConfigModal.hidden) {
       closeFlashConfigDialog();
+    } else if (els.readFlashModal && !els.readFlashModal.hidden) {
+      closeReadFlashDialog();
+    } else if (els.eraseChipModal && !els.eraseChipModal.hidden) {
+      closeEraseChipDialog();
     }
   });
 
@@ -1116,6 +1904,24 @@ function init() {
     if (state.client) state.client.debug = els.debugLog.checked;
   });
 
+  els.readFlashBtn.addEventListener('click', openReadFlashDialog);
+  els.eraseChipBtn.addEventListener('click', openEraseChipDialog);
+  els.readFlashCloseBtn.addEventListener('click', closeReadFlashDialog);
+  els.readCancelBtn.addEventListener('click', closeReadFlashDialog);
+  els.readDetectBtn.addEventListener('click', runReadDetection);
+  els.readStartBtn.addEventListener('click', startReadFlash);
+  els.readFlashModal.addEventListener('click', (event) => {
+    if (event.target === els.readFlashModal) closeReadFlashDialog();
+  });
+  els.eraseChipCloseBtn.addEventListener('click', closeEraseChipDialog);
+  els.eraseCancelBtn.addEventListener('click', closeEraseChipDialog);
+  els.eraseDetectBtn.addEventListener('click', runEraseDetection);
+  els.eraseAddress.addEventListener('input', updateEraseRangeHint);
+  els.eraseLength.addEventListener('input', updateEraseRangeHint);
+  els.eraseStartBtn.addEventListener('click', startEraseChip);
+  els.eraseChipModal.addEventListener('click', (event) => {
+    if (event.target === els.eraseChipModal) closeEraseChipDialog();
+  });
   els.flashBtn.addEventListener('click', flash);
   els.cancelBtn.addEventListener('click', cancelFlash);
   els.clearLogBtn.addEventListener('click', () => {
@@ -1128,8 +1934,8 @@ function init() {
   if (navigator.hid) {
     navigator.hid.addEventListener('disconnect', (event) => {
       if (state.transport?.kind === 'hid' && state.transport.device === event.device) {
-        if (state.busy) {
-          log('debug', 'HID disconnected during programming; waiting for re-enumeration');
+        if (state.busy || state.connecting || state.reconnecting) {
+          log('debug', 'HID disconnected during an active operation; waiting for re-enumeration');
           return;
         }
         if (state.flashSucceeded) {
@@ -1140,6 +1946,7 @@ function init() {
         state.transport = null;
         state.client = null;
         state.bootloaderReady = false;
+        state.verifySupported = true;
         setStatusDetail('', '');
         updateUi();
       }
@@ -1149,11 +1956,16 @@ function init() {
   if (navigator.serial) {
     navigator.serial.addEventListener('disconnect', (event) => {
       if (state.transport?.kind === 'serial' && state.transport.port === event.target) {
+        if (state.connecting || state.reconnecting) {
+          log('debug', 'Serial disconnected while connecting; ignoring');
+          return;
+        }
         log('warn', 'Serial device disconnected');
         if (!state.busy) {
           state.transport = null;
           state.client = null;
           state.bootloaderReady = false;
+          state.verifySupported = true;
           setStatusDetail('', '');
           updateUi();
         }

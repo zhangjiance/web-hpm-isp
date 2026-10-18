@@ -33,13 +33,20 @@
       </button>
     </div>
 
-    <div class="app-card title-brand-wrap hpm-app">
+    <div id="hpmApp" class="app-card title-brand-wrap hpm-app">
       <a class="brand-watermark" href="/" aria-label="Back to Home">GeekDebug</a>
 
       <div class="hpm-header">
-        <h2>📟 HPM ISP Flasher</h2>
+        <h2><span class="hpm-pager" aria-hidden="true">📟</span> <span class="hpm-title-text">HPM ISP Flasher</span></h2>
         <p class="hpm-subtitle">Web-based UART / USB-HID ISP programmer for HPMicro devices</p>
         <div class="hpm-header-meta">
+          <span class="hpm-chip-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="7" y="7" width="10" height="10" rx="2" />
+              <path d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4" />
+              <path d="M10 10h4v4h-4z" />
+            </svg>
+          </span>
           <span id="browserBadge" class="badge">Checking...</span>
         </div>
       </div>
@@ -53,6 +60,7 @@
             <span id="connState">Disconnected</span>
             <span id="connDetail" class="hpm-status-detail"></span>
           </div>
+          <div id="connectHint" class="hpm-connect-hint"></div>
         </div>
 
         <div class="hpm-connect-fields">
@@ -75,8 +83,8 @@
           <label class="field hpm-inline-field hpm-interface-field">
             <span>Interface</span>
             <select id="transportSelect">
-              <option value="serial" selected>UART</option>
-              <option value="hid">USB-HID</option>
+              <option value="serial">UART</option>
+              <option value="hid" selected>USB-HID</option>
             </select>
           </label>
 
@@ -100,6 +108,7 @@
         </div>
 
         <div class="hpm-connect-actions">
+          <span id="connLed" class="hpm-conn-led" aria-hidden="true"></span>
           <button id="connectBtn" class="primary">Connect</button>
         </div>
       </div>
@@ -107,30 +116,8 @@
       <div class="hpm-layout">
         <div class="hpm-controls">
           <section class="hpm-section hpm-fw-section">
-            <div class="hpm-fw-topbar">
-              <fieldset id="imageDropZone" class="hpm-fw-dropzone">
-                <legend class="hpm-fw-drop-title">Firmware &amp; Image</legend>
-                <div class="hpm-file-control">
-                  <input
-                    id="imageFile"
-                    type="file"
-                    accept=".bin,.img,application/octet-stream"
-                    title="HPM Flash image with an optional 0xFCF9xxxx configuration block. The whole file is written as-is."
-                  />
-                  <label for="imageFile" class="hpm-file-button">Choose File</label>
-                  <span id="imageFileName" class="hpm-file-name">No file selected</span>
-                  <span class="hpm-fw-drop-hint">Drop .bin / .img here</span>
-                </div>
-              </fieldset>
-
-              <div class="hpm-flash-actions">
-                <button id="flashBtn" class="primary" disabled title="Connect a device and select an image">Program</button>
-                <button id="cancelBtn" hidden>Cancel</button>
-              </div>
-            </div>
-
             <div class="hpm-fw-columns">
-              <div class="hpm-fw-group">
+              <div class="hpm-fw-group hpm-fw-image-group">
                 <div class="hpm-image-type-block">
                   <label for="imageType" class="hpm-image-type-label">Image Type</label>
                   <div class="hpm-image-type-controls">
@@ -138,46 +125,101 @@
                       <option value="boot" selected>Boot Image</option>
                       <option value="user">User Data</option>
                     </select>
-
-                    <div class="hpm-fw-options">
-                      <label class="check">
-                        <input id="verifyAfter" type="checkbox" checked />
-                        Verify after write
-                      </label>
-                      <label class="check">
-                        <input id="resetAfter" type="checkbox" />
-                        Reset after write
-                      </label>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              <div class="hpm-fw-group">
-                <div class="hpm-fw-group-row hpm-fw-target-row">
-                  <label class="field">
-                    Write Address
-                    <input id="address" type="text" value="0x80000400" />
-                  </label>
+              <div class="hpm-fw-group hpm-fw-address-group">
+                <label class="field">
+                  Write Address
+                  <input id="address" type="text" value="0x80000400" />
+                </label>
+              </div>
 
-                  <div class="field">
-                    <label for="configWords">Flash Configuration Words</label>
-                    <div class="hpm-input-with-action">
-                      <input
-                        id="configWords"
-                        type="text"
-                        value="0xfcf90001, 0x5, 0x0, 0x0"
-                        title="XPI NOR Device Configuration Block (normally four 32-bit words). Auto-filled when a 0xFCF9xxxx block is found in the image."
-                      />
-                      <button
-                        id="configGearBtn"
-                        class="hpm-gear-btn"
-                        type="button"
-                        title="Open the Flash configuration word generator"
-                        aria-label="Open the Flash configuration word generator"
-                      >⚙️</button>
-                    </div>
+              <div class="hpm-fw-group hpm-fw-config-group">
+                <div class="field">
+                  <label for="configWords">Flash Configuration Words</label>
+                  <div class="hpm-input-with-action">
+                    <input
+                      id="configWords"
+                      type="text"
+                      value="0xfcf90001, 0x5, 0x0, 0x0"
+                      title="XPI NOR Device Configuration Block (normally four 32-bit words). Auto-filled when a 0xFCF9xxxx block is found in the image."
+                    />
+                    <button
+                      id="configGearBtn"
+                      class="hpm-gear-btn"
+                      type="button"
+                      title="Open the Flash configuration word generator"
+                      aria-label="Open the Flash configuration word generator"
+                    >⚙️</button>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="hpm-fw-file-row">
+              <fieldset id="imageDropZone" class="hpm-fw-dropzone">
+                <legend class="hpm-fw-drop-title">Firmware Image</legend>
+                <div class="hpm-file-control">
+                  <input
+                    id="imageFile"
+                    type="file"
+                    accept=".bin,.img,application/octet-stream"
+                    title="HPM Flash image with an optional 0xFCF9xxxx configuration block. The whole file is written as-is."
+                  />
+                  <span class="hpm-fw-drop-icon" aria-hidden="true">
+                    <svg class="hpm-drop-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 16V4" />
+                      <path d="m8 8 4-4 4 4" />
+                      <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                    </svg>
+                    <svg class="hpm-drop-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m5 12 4 4L19 6" />
+                    </svg>
+                  </span>
+                  <label for="imageFile" class="hpm-file-button">Choose File</label>
+                  <span id="imageFileName" class="hpm-file-name">No file selected</span>
+                  <span class="hpm-fw-drop-hint">Drop .bin / .img here</span>
+                </div>
+              </fieldset>
+
+              <div class="hpm-fw-action-group">
+                <div class="hpm-fw-program-options" role="group" aria-label="Programming options">
+                  <label class="check" title="Verify after write">
+                    <input id="verifyAfter" type="checkbox" checked />
+                    Verify
+                  </label>
+                  <label class="check" title="Reset after write">
+                    <input id="resetAfter" type="checkbox" />
+                    Reset
+                  </label>
+                </div>
+
+                <div class="hpm-flash-actions">
+                  <button id="readFlashBtn" class="primary" disabled title="Connect a device first">
+                    <svg class="hpm-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 3v10" />
+                      <path d="m8 9 4 4 4-4" />
+                      <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                    </svg>
+                    <span>Read</span>
+                  </button>
+                  <button id="eraseChipBtn" class="primary" disabled title="Connect a device first">
+                    <svg class="hpm-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m5 15 7-7a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L12 18H8l-3-3Z" />
+                      <path d="m9 11 5 5" />
+                      <path d="M13 20h8" />
+                    </svg>
+                    <span>Erase</span>
+                  </button>
+                  <button id="flashBtn" class="primary" disabled title="Connect a device and select an image">
+                    <svg class="hpm-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M13 2 4.5 13.5H11l-1 8L19 10h-6l0-8Z" />
+                    </svg>
+                    <span>Program</span>
+                  </button>
+                  <button id="cancelBtn" hidden>Cancel</button>
                 </div>
               </div>
             </div>
@@ -209,7 +251,7 @@
           <div id="logSuccess" class="hpm-log-success" role="status" aria-live="polite" hidden>
             <span class="hpm-log-success-icon" aria-hidden="true">✓</span>
             <span class="hpm-log-success-copy">
-              <strong>Programming complete</strong>
+              <strong id="logSuccessTitle">Programming complete</strong>
               <span id="logSuccessDetail" class="hpm-log-success-detail"></span>
             </span>
             <button
@@ -250,8 +292,9 @@
           After loading <code>bl_fw</code>, the HID device re-enumerates as
           <strong>Boot Firmware Open</strong>. Chrome requires a new permission grant.
         </p>
-        <p class="hpm-modal-hint">
-          Select the device with VID <code>0x34b7</code> / PID <code>0x0005</code>.
+        <p id="hidReconnectHint" class="hpm-modal-hint">
+          Select the device whose product name is <strong>Boot Firmware Open</strong>
+          (VID <code>0x34b7</code>). Its PID depends on the SoC.
           If it is not listed yet, wait 1-2 seconds and try again.
         </p>
         <div class="hpm-modal-actions">
@@ -259,6 +302,106 @@
             Select Boot Firmware Open
           </button>
           <button id="hidReconnectCancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="readFlashModal" class="hpm-modal-backdrop" hidden>
+      <div
+        class="hpm-modal hpm-read-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="readFlashTitle"
+      >
+        <div class="hpm-modal-header">
+          <div class="hpm-modal-icon">📥</div>
+          <div class="hpm-modal-title-wrap">
+            <h3 id="readFlashTitle">Read Flash</h3>
+            <p>XPI0 NOR → .bin file</p>
+          </div>
+          <button
+            id="readFlashCloseBtn"
+            class="hpm-modal-close"
+            type="button"
+            aria-label="Close"
+          >×</button>
+        </div>
+        <p class="hpm-modal-desc">
+          Reads the external XPI0 NOR flash through the bootloader. The current
+          <strong>Flash Configuration Words</strong> are written to ILM and used to
+          configure XPI0 NOR before the read.
+        </p>
+        <div class="hpm-detect-row">
+          <span id="readDetectInfo" class="hpm-detect-info">Detecting XPI0 NOR...</span>
+          <button id="readDetectBtn" class="hpm-detect-btn" type="button">Detect</button>
+        </div>
+        <div class="hpm-read-grid">
+          <label class="hpm-read-field">
+            Start Address
+            <input id="readAddress" type="text" value="0x80000000" />
+          </label>
+          <label class="hpm-read-field">
+            Read Length
+            <input id="readLength" type="text" value="0x100000" />
+          </label>
+        </div>
+        <p class="hpm-read-hint">
+          Length accepts hex (<code>0x...</code>) or decimal bytes. The default is
+          1 MiB. The data is downloaded as a <code>.bin</code> file when the read completes.
+        </p>
+        <div class="hpm-modal-actions">
+          <button id="readStartBtn" class="primary" type="button">Read &amp; Download</button>
+          <button id="readCancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="eraseChipModal" class="hpm-modal-backdrop" hidden>
+      <div
+        class="hpm-modal hpm-erase-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="eraseChipTitle"
+      >
+        <div class="hpm-modal-header">
+          <div class="hpm-modal-icon hpm-modal-icon--danger">⚠️</div>
+          <div class="hpm-modal-title-wrap">
+            <h3 id="eraseChipTitle">Erase Flash</h3>
+            <p>XPI0 NOR · full chip or custom range</p>
+          </div>
+          <button
+            id="eraseChipCloseBtn"
+            class="hpm-modal-close"
+            type="button"
+            aria-label="Close"
+          >×</button>
+        </div>
+        <p class="hpm-modal-desc">
+          Erases XPI0 NOR. The range defaults to the entire flash detected through
+          <code>query-rte 4</code>. Change the start address and length for a partial erase.
+          This action cannot be undone.
+        </p>
+        <p class="hpm-erase-target">
+          Target: <strong id="eraseTarget">XPI0 NOR</strong>
+        </p>
+        <div class="hpm-detect-row">
+          <span id="eraseDetectInfo" class="hpm-detect-info">Detecting XPI0 NOR...</span>
+          <button id="eraseDetectBtn" class="hpm-detect-btn" type="button">Detect</button>
+        </div>
+        <div class="hpm-read-grid">
+          <label class="hpm-read-field">
+            Start Address
+            <input id="eraseAddress" type="text" value="0x80000000" />
+          </label>
+          <label class="hpm-read-field">
+            Erase Length
+            <input id="eraseLength" type="text" value="0x100000" />
+          </label>
+        </div>
+        <p id="eraseRangeHint" class="hpm-erase-range-hint"></p>
+        <div class="hpm-modal-actions">
+          <button id="eraseStartBtn" class="danger" type="button" disabled>Erase</button>
+          <button id="eraseCancelBtn" type="button">Cancel</button>
         </div>
       </div>
     </div>
@@ -285,21 +428,28 @@
         </div>
 
         <div class="hpm-config-topbar">
-          <label class="hpm-config-custom">
-            <input id="cfgCustomEnabled" type="checkbox" checked />
-            Custom FLASH configuration
-          </label>
-          <label class="hpm-config-preset">
-            <span>Typical configuration</span>
-            <select id="flashConfigPreset">
-              <option value="custom">Custom</option>
-              <option value="hpm5300evk">HPM5300EVK (102 MHz, 2nd group)</option>
-              <option value="typical_a0">HPM6200/6300/6800/6E00 EVK (Channel A, group0)</option>
-              <option value="typical_b0">Typical: Channel B, group0</option>
-              <option value="typical_a1">Typical: Channel A, group1</option>
-              <option value="hpm6750evk">HPM6750EVK2 / MINI</option>
-            </select>
-          </label>
+          <div class="hpm-config-topbar-main">
+            <label class="hpm-config-custom">
+              <input id="cfgCustomEnabled" type="checkbox" checked />
+              Custom FLASH configuration
+            </label>
+            <label class="hpm-config-preset">
+              <span>Typical configuration</span>
+              <select id="flashConfigPreset">
+                <option value="custom">Custom</option>
+                <option value="hpm5300evk">HPM5100/5300/5301Lite/5E00/6P00 EVK</option>
+                <option value="typical_a0">HPM6200/6300/6800/6E00 EVK (A, g0)</option>
+                <option value="hpm6750evk">HPM6750EVK2 / HPM6750EVKMINI</option>
+                <option value="typical_b0">Typical: Channel B, group0</option>
+                <option value="typical_a1">Typical: Channel A, group1</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="hpm-config-actions">
+            <button id="flashConfigApplyBtn" class="primary" type="button">Apply</button>
+            <button id="flashConfigCancelBtn" type="button">Cancel</button>
+          </div>
         </div>
 
         <div class="hpm-config-table">
@@ -451,10 +601,6 @@
           </div>
         </div>
 
-        <div class="hpm-modal-actions">
-          <button id="flashConfigApplyBtn" class="primary" type="button">Apply</button>
-          <button id="flashConfigCancelBtn" type="button">Cancel</button>
-        </div>
       </div>
     </div>
 
