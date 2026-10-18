@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HPM ISP Flasher - GeekDebug</title>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css?v=2.8" />
+    <link rel="stylesheet" href="./hpm-isp.css" />
+  </head>
+  <body>
+    <div id="theme-switcher">
+      <button
+        class="theme-btn active"
+        data-theme="light"
+        title="Light Theme"
+        aria-label="Light Theme"
+      >
+        ☀️<span class="sr-only">Light Theme</span>
+      </button>
+      <button class="theme-btn" data-theme="dark" title="Dark Theme" aria-label="Dark Theme">
+        🌙<span class="sr-only">Dark Theme</span>
+      </button>
+    </div>
+
+    <div class="app-card title-brand-wrap hpm-app">
+      <a class="brand-watermark" href="/" aria-label="Back to Home">GeekDebug</a>
+
+      <div class="hpm-header">
+        <h2>📟 HPM ISP Flasher</h2>
+        <p class="hpm-subtitle">Web-based UART / USB-HID ISP programmer for HPMicro devices</p>
+        <div class="hpm-header-meta">
+          <span id="browserBadge" class="badge">Checking...</span>
+        </div>
+      </div>
+
+      <div id="warningBanner" class="hpm-warning" hidden></div>
+
+      <div class="hpm-connect-bar">
+        <div class="hpm-connect-status" aria-live="polite">
+          <div class="hpm-status-label">Connection Status</div>
+          <div class="hpm-status-line">
+            <span id="connState">Disconnected</span>
+            <span id="connDetail" class="hpm-status-detail"></span>
+          </div>
+        </div>
+
+        <div class="hpm-connect-fields">
+          <label class="field hpm-inline-field hpm-soc-field">
+            <span>SoC</span>
+            <select id="socSelect">
+              <option value="">Select SoC</option>
+              <option value="HPM5100">HPM5100</option>
+              <option value="HPM5300">HPM5300</option>
+              <option value="HPM5E00">HPM5E00</option>
+              <option value="HPM6200">HPM6200</option>
+              <option value="HPM6300">HPM6300</option>
+              <option value="HPM6700_HPM6400">HPM6700 / HPM6400</option>
+              <option value="HPM6800">HPM6800</option>
+              <option value="HPM6E00">HPM6E00</option>
+              <option value="HPM6P00">HPM6P00</option>
+            </select>
+          </label>
+
+          <label class="field hpm-inline-field hpm-interface-field">
+            <span>Interface</span>
+            <select id="transportSelect">
+              <option value="serial" selected>UART</option>
+              <option value="hid">USB-HID</option>
+            </select>
+          </label>
+
+          <label id="baudField" class="field hpm-inline-field hpm-baud-field">
+            <span>Baud rate</span>
+            <select id="serialBaud">
+              <option value="57600">57600</option>
+              <option value="115200" selected>115200</option>
+              <option value="230400">230400</option>
+              <option value="460800">460800</option>
+              <option value="500000">500000</option>
+              <option value="921600">921600</option>
+              <option value="1000000">1000000</option>
+            </select>
+          </label>
+
+          <label id="hidOptions" class="check hpm-inline-check" hidden>
+            <input id="hidAllDevices" type="checkbox" />
+            All HID devices
+          </label>
+        </div>
+
+        <div class="hpm-connect-actions">
+          <button id="connectBtn" class="primary">Connect</button>
+        </div>
+      </div>
+
+      <div class="hpm-layout">
+        <div class="hpm-controls">
+          <section class="hpm-section hpm-fw-section">
+            <div class="hpm-fw-topbar">
+              <fieldset id="imageDropZone" class="hpm-fw-dropzone">
+                <legend class="hpm-fw-drop-title">Firmware &amp; Image</legend>
+                <div class="hpm-file-control">
+                  <input
+                    id="imageFile"
+                    type="file"
+                    accept=".bin,.img,application/octet-stream"
+                    title="HPM Flash image with an optional 0xFCF9xxxx configuration block. The whole file is written as-is."
+                  />
+                  <label for="imageFile" class="hpm-file-button">Choose File</label>
+                  <span id="imageFileName" class="hpm-file-name">No file selected</span>
+                  <span class="hpm-fw-drop-hint">Drop .bin / .img here</span>
+                </div>
+              </fieldset>
+
+              <div class="hpm-flash-actions">
+                <button id="flashBtn" class="primary" disabled title="Connect a device and select an image">Program</button>
+                <button id="cancelBtn" hidden>Cancel</button>
+              </div>
+            </div>
+
+            <div class="hpm-fw-columns">
+              <div class="hpm-fw-group">
+                <div class="hpm-image-type-block">
+                  <label for="imageType" class="hpm-image-type-label">Image Type</label>
+                  <div class="hpm-image-type-controls">
+                    <select id="imageType">
+                      <option value="boot" selected>Boot Image</option>
+                      <option value="user">User Data</option>
+                    </select>
+
+                    <div class="hpm-fw-options">
+                      <label class="check">
+                        <input id="verifyAfter" type="checkbox" checked />
+                        Verify after write
+                      </label>
+                      <label class="check">
+                        <input id="resetAfter" type="checkbox" />
+                        Reset after write
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="hpm-fw-group">
+                <div class="hpm-fw-group-row hpm-fw-target-row">
+                  <label class="field">
+                    Write Address
+                    <input id="address" type="text" value="0x80000400" />
+                  </label>
+
+                  <div class="field">
+                    <label for="configWords">Flash Configuration Words</label>
+                    <div class="hpm-input-with-action">
+                      <input
+                        id="configWords"
+                        type="text"
+                        value="0xfcf90001, 0x5, 0x0, 0x0"
+                        title="XPI NOR Device Configuration Block (normally four 32-bit words). Auto-filled when a 0xFCF9xxxx block is found in the image."
+                      />
+                      <button
+                        id="configGearBtn"
+                        class="hpm-gear-btn"
+                        type="button"
+                        title="Open the Flash configuration word generator"
+                        aria-label="Open the Flash configuration word generator"
+                      >⚙️</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="progressSection" class="hpm-progress-wrap" hidden>
+              <div class="progress">
+                <div id="progressBar" class="progress-bar"></div>
+              </div>
+              <div class="hpm-progress-meta">
+                <span id="progressText">Ready</span>
+                <span id="percentText">0%</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="hpm-log-card">
+          <div class="log-head">
+            <h2>Log</h2>
+            <div class="row">
+              <label class="check">
+                <input id="debugLog" type="checkbox" />
+                Debug log
+              </label>
+              <button id="clearLogBtn">Clear</button>
+            </div>
+          </div>
+
+          <div id="logSuccess" class="hpm-log-success" role="status" aria-live="polite" hidden>
+            <span class="hpm-log-success-icon" aria-hidden="true">✓</span>
+            <span class="hpm-log-success-copy">
+              <strong>Programming complete</strong>
+              <span id="logSuccessDetail" class="hpm-log-success-detail"></span>
+            </span>
+            <button
+              id="logSuccessClose"
+              class="hpm-log-success-close"
+              type="button"
+              aria-label="Dismiss success message"
+            >×</button>
+          </div>
+
+          <div id="log" class="log"></div>
+        </aside>
+
+      </div>
+    </div>
+
+    <div id="hidReconnectModal" class="hpm-modal-backdrop" hidden>
+      <div
+        class="hpm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="hidReconnectTitle"
+      >
+        <div class="hpm-modal-header">
+          <div class="hpm-modal-icon hpm-modal-icon--accent">🔌</div>
+          <div class="hpm-modal-title-wrap">
+            <h3 id="hidReconnectTitle">Device Re-enumerated</h3>
+            <p>Boot ROM → Boot Firmware</p>
+          </div>
+          <button
+            id="hidReconnectCloseBtn"
+            class="hpm-modal-close"
+            type="button"
+            aria-label="Close"
+          >×</button>
+        </div>
+        <p class="hpm-modal-desc">
+          After loading <code>bl_fw</code>, the HID device re-enumerates as
+          <strong>Boot Firmware Open</strong>. Chrome requires a new permission grant.
+        </p>
+        <p class="hpm-modal-hint">
+          Select the device with VID <code>0x34b7</code> / PID <code>0x0005</code>.
+          If it is not listed yet, wait 1-2 seconds and try again.
+        </p>
+        <div class="hpm-modal-actions">
+          <button id="hidReconnectModalBtn" class="primary" type="button">
+            Select Boot Firmware Open
+          </button>
+          <button id="hidReconnectCancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="flashConfigModal" class="hpm-modal-backdrop" hidden>
+      <div
+        class="hpm-modal hpm-config-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="flashConfigTitle"
+      >
+        <div class="hpm-modal-header">
+          <div class="hpm-modal-icon">⚙️</div>
+          <div class="hpm-modal-title-wrap">
+            <h3 id="flashConfigTitle">Flash Configuration Words</h3>
+            <p>XPI NOR Device Configuration Block · see user manual section 19.3.3.1</p>
+          </div>
+          <button
+            id="flashConfigCloseBtn"
+            class="hpm-modal-close"
+            type="button"
+            aria-label="Close"
+          >×</button>
+        </div>
+
+        <div class="hpm-config-topbar">
+          <label class="hpm-config-custom">
+            <input id="cfgCustomEnabled" type="checkbox" checked />
+            Custom FLASH configuration
+          </label>
+          <label class="hpm-config-preset">
+            <span>Typical configuration</span>
+            <select id="flashConfigPreset">
+              <option value="custom">Custom</option>
+              <option value="hpm5300evk">HPM5300EVK (102 MHz, 2nd group)</option>
+              <option value="typical_a0">HPM6200/6300/6800/6E00 EVK (Channel A, group0)</option>
+              <option value="typical_b0">Typical: Channel B, group0</option>
+              <option value="typical_a1">Typical: Channel A, group1</option>
+              <option value="hpm6750evk">HPM6750EVK2 / MINI</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="hpm-config-table">
+          <div class="hpm-config-row">
+            <label class="hpm-config-pair">
+              <span title="Flash Probe Type">Probe Type</span>
+              <select id="cfgProbe">
+                <option value="0">SFDP SDR</option>
+                <option value="1">SFDP DDR</option>
+                <option value="10">EcoXiP DDR</option>
+                <option value="2">1-4-4 Read</option>
+                <option value="3">1-2-2 Read</option>
+                <option value="4">HyperFLASH 1.8V</option>
+                <option value="5">HyperFLASH 3V</option>
+                <option value="6">OctaBus DDR</option>
+                <option value="8">Xccela DDR</option>
+              </select>
+            </label>
+            <label class="hpm-config-pair">
+              <span title="Command Pads after Power-on Reset">Power-on Pads</span>
+              <select id="cfgReadLines">
+                <option value="0">SPI</option>
+                <option value="1">DPI</option>
+                <option value="2">QPI</option>
+                <option value="3">OPI</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="hpm-config-row">
+            <label class="hpm-config-pair">
+              <span title="Command Pads after Configuring FLASH">Configured Pads</span>
+              <select id="cfgConfigLines">
+                <option value="0">SPI</option>
+                <option value="1">DPI</option>
+                <option value="2">QPI</option>
+                <option value="3">OPI</option>
+              </select>
+            </label>
+            <label class="hpm-config-pair">
+              <span title="Quad Enable Sequence">Quad Enable</span>
+              <select id="cfgQe">
+                <option value="0">Not needed</option>
+                <option value="1">SR1 bit6</option>
+                <option value="2">SR2 bit1</option>
+                <option value="3">SR2 bit7</option>
+                <option value="4">SR2 bit1 (0x31)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="hpm-config-row">
+            <label class="hpm-config-pair">
+              <span>Dummy Cycles</span>
+              <select id="cfgDummy">
+                <option value="0">auto</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="6">6</option>
+                <option value="8">8</option>
+                <option value="10">10</option>
+                <option value="12">12</option>
+                <option value="16">16</option>
+                <option value="20">20</option>
+                <option value="24">24</option>
+                <option value="32">32</option>
+              </select>
+            </label>
+            <label class="hpm-config-pair">
+              <span>Misc</span>
+              <select id="cfgMisc">
+                <option value="0">Not used</option>
+                <option value="1">SPI mode</option>
+                <option value="2">Internal loopback</option>
+                <option value="3">External DQS</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="hpm-config-row">
+            <label class="hpm-config-pair">
+              <span title="Frequency option">Frequency</span>
+              <select id="cfgFreq">
+                <option value="1">31 MHz (SDR) / 29.6 MHz (DDR)</option>
+                <option value="2">50 MHz</option>
+                <option value="3">66 MHz</option>
+                <option value="4">80 MHz</option>
+                <option value="5">102 MHz</option>
+                <option value="6">120 MHz (SDR) / 114 MHz (DDR)</option>
+                <option value="7">133 MHz</option>
+                <option value="8">166 MHz</option>
+              </select>
+            </label>
+            <label class="hpm-config-pair">
+              <span title="IO voltage">IO Voltage</span>
+              <select id="cfgIoVoltage">
+                <option value="0">3V</option>
+                <option value="1">1.8V</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="hpm-config-row">
+            <label class="hpm-config-pair">
+              <span title="Pin group">Pin Group</span>
+              <select id="cfgPinGroup">
+                <option value="0">1st group</option>
+                <option value="1">2nd group</option>
+              </select>
+            </label>
+            <label class="hpm-config-pair">
+              <span title="Connection selection">Connection</span>
+              <select id="cfgConnection">
+                <option value="0">CA_CS0</option>
+                <option value="1">CB_CS0</option>
+                <option value="2">CA_CS0 + CB_CS0</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <details class="hpm-config-advanced">
+          <summary>Advanced (Drive Strength / Flash Size)</summary>
+          <div class="hpm-config-advanced-grid">
+            <label class="field">
+              Drive Strength
+              <input id="cfgDrive" type="number" min="0" max="255" value="0" title="0 = default / maximum drive strength" />
+            </label>
+            <label class="field">
+              Flash Size Option
+              <select id="cfgFlashSize">
+                <option value="0">4MB</option>
+                <option value="1">8MB</option>
+                <option value="2">16MB</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <div class="hpm-config-preview">
+          <div class="hpm-config-preview-label">Generated words</div>
+          <div id="flashConfigPreview" class="hpm-config-preview-value">
+            0xfcf90002, 0x5, 0x1000, 0x0
+          </div>
+          <div class="hpm-config-preview-hint">
+            The low 4 bits of the header are generated automatically from the options in use. You can still edit the field manually after applying.
+          </div>
+        </div>
+
+        <div class="hpm-modal-actions">
+          <button id="flashConfigApplyBtn" class="primary" type="button">Apply</button>
+          <button id="flashConfigCancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./common.js?v=2.8"></script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,2078 @@
+:root {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* HPM ISP Flasher - compact page styles for the GeekDebug WebUI.
+ * Theme variables and #theme-switcher come from /styles.css.
+ */
+/* Use the same primary-action gradient as the BlackMagic Utils tool. */
+.hpm-app,
+.hpm-modal-backdrop {
+  --button-primary: #2f96bb;
+  --hpm-success: #1f9d63;
+  --button-primary-gradient: linear-gradient(120deg, #2f96bb 0%, #4fb8c9 60%, #7fd0df 100%);
+  --button-primary-gradient-hover: linear-gradient(120deg, #257c9b 0%, #3ea3bb 60%, #6ac4d8 100%);
+}
+
+[data-theme="dark"] .hpm-app,
+[data-theme="dark"] .hpm-modal-backdrop {
+  --text-primary: #ffffff;
+  --text-secondary: #e0eaf7;
+  --text-muted: #c3d2e4;
+  --card-bg: #0d1a2d;
+  --input-bg: #091423;
+  --input-border: #4b6789;
+  --border-color: #405a79;
+  --log-bg: #07101e;
+  --progress-bg: #14243a;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --shadow-hover: rgba(0, 0, 0, 0.55);
+  --error-color: #ff7b72;
+  --button-warning: #f2a65a;
+  --button-primary: #60a5fa;
+  --hpm-success: #34d399;
+  --progress-fill: #4ade9a;
+  --button-primary-gradient: linear-gradient(120deg, #60a5fa 0%, #3b82f6 60%, #2563eb 100%);
+  --button-primary-gradient-hover: linear-gradient(120deg, #93bbfd 0%, #60a5fa 60%, #3b82f6 100%);
+}
+
+[data-theme="dark"] body {
+  background: linear-gradient(135deg, #060c16 0%, #0a1322 52%, #0e1a2c 100%);
+}
+
+[data-theme="dark"] .hpm-app .hpm-header h2 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .hpm-app .hpm-subtitle {
+  color: #c4d3e6;
+}
+
+[data-theme="dark"] .hpm-app button:disabled,
+[data-theme="dark"] .hpm-modal button:disabled {
+  opacity: 0.65;
+}
+
+[data-theme="dark"] .hpm-app .log-line {
+  border-bottom-color: color-mix(in srgb, var(--input-border) 45%, transparent);
+}
+
+[data-theme="dark"] .hpm-app .log-line.info .log-level {
+  color: #7db7ff;
+}
+
+[data-theme="dark"] .hpm-app .log-line.warn .log-level {
+  color: #f2a65a;
+}
+
+[data-theme="dark"] .hpm-app .log-line.success .log-level {
+  color: #4ade9a;
+}
+
+[data-theme="dark"] .hpm-app .log-line.error .log-level {
+  color: #ff8078;
+}
+
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin-left: 0 !important;
+}
+
+.hpm-app {
+  max-width: 1100px;
+  padding: 24px 26px 26px;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.hpm-app .brand-watermark {
+  top: 8px;
+  left: 14px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.hpm-header {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 14px;
+  text-align: center;
+}
+
+.hpm-app .hpm-header h2 {
+  display: block;
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.hpm-subtitle {
+  display: block;
+  margin: 0 0 9px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hpm-header-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hpm-app .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--progress-bg) 50%, transparent);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hpm-app .badge.ok {
+  color: color-mix(in srgb, var(--progress-fill) 72%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--progress-fill) 50%, transparent);
+}
+
+.hpm-app .badge.bad {
+  color: var(--error-color);
+  border-color: color-mix(in srgb, var(--error-color) 50%, transparent);
+}
+
+.hpm-app .hpm-link {
+  color: var(--button-primary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-link:hover {
+  text-decoration: underline;
+}
+
+.hpm-warning {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--button-warning) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--button-warning) 12%, var(--card-bg));
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Compact connection strip. */
+.hpm-connect-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 52%, transparent);
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--card-bg) 96%, var(--button-primary) 4%),
+      color-mix(in srgb, var(--card-bg) 91%, var(--button-primary) 9%)
+    );
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.hpm-app .tabs {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 58%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--progress-bg) 55%, transparent);
+}
+
+.hpm-app .tabs label {
+  position: relative;
+  display: block;
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hpm-app .tabs input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hpm-app .tabs label:has(input:checked) {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--input-border) 70%, transparent);
+  background: var(--card-bg);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.hpm-app .row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+}
+
+.hpm-app .row.wrap {
+  flex-wrap: wrap;
+}
+
+.hpm-connect-pane {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hpm-connect-pane .row {
+  flex-wrap: nowrap;
+}
+
+.hpm-connect-pane .row.wrap {
+  flex-wrap: wrap;
+}
+
+.hpm-connect-pane .field {
+  margin: 0;
+}
+
+.hpm-app .field.hpm-inline-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hpm-app .field.hpm-inline-field > span,
+.hpm-app .hpm-interface-field > span {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.hpm-app .hpm-interface-field {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-baud-field,
+.hpm-app .hpm-soc-field {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.hpm-app .field.hpm-baud-field select {
+  width: 112px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.hpm-app .field.hpm-soc-field select {
+  width: 145px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.hpm-app .hpm-connect-pane .info,
+.hpm-app .hpm-connect-pane .info.ok,
+.hpm-app .hpm-connect-pane .info.error {
+  min-height: 14px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hpm-app .hpm-inline-check {
+  flex: 0 0 auto;
+  margin-left: 2px;
+  font-size: 11px;
+}
+
+.hpm-connect-right {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  margin-left: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-connect-right button {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+/* Single-column work area: controls stack above the log. */
+.hpm-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.hpm-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.hpm-section {
+  padding: 15px 16px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 52%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--card-bg) 96%, var(--button-primary) 4%),
+      color-mix(in srgb, var(--card-bg) 91%, var(--button-primary) 9%)
+    );
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.hpm-app .hpm-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.hpm-app .step {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--button-primary) 34%, transparent);
+  background: color-mix(in srgb, var(--button-primary) 14%, transparent);
+  color: var(--button-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Firmware / image block. */
+.hpm-fw-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr 1.35fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hpm-fw-grid.hpm-fw-grid-2 {
+  grid-template-columns: 1fr 1.35fr;
+}
+
+.hpm-app .field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.hpm-app input[type="text"],
+.hpm-app input[type="number"],
+.hpm-app select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hpm-app select {
+  font-family: inherit;
+  font-size: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hpm-app input[type="text"]:focus,
+.hpm-app select:focus {
+  border-color: var(--button-primary);
+  box-shadow: 0 0 0 2px var(--focus-shadow);
+}
+
+.hpm-app .hpm-fw-topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.hpm-app .hpm-fw-dropzone {
+  display: block;
+  flex: 1 1 520px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 12px 4px;
+  border: 1px dashed color-mix(in srgb, var(--input-border) 78%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--progress-bg) 16%, var(--card-bg));
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.hpm-app .hpm-fw-dropzone.is-dragover {
+  border-color: var(--button-primary);
+  background: color-mix(in srgb, var(--button-primary) 9%, var(--card-bg));
+}
+
+.hpm-app .hpm-fw-drop-title {
+  padding: 0 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-fw-dropzone .hpm-file-control {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hpm-app .hpm-fw-dropzone .hpm-file-name {
+  flex: 1 1 auto;
+}
+
+.hpm-app .hpm-fw-drop-hint {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-fw-topbar .hpm-flash-actions {
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.hpm-app .hpm-fw-topbar .hpm-flash-actions button {
+  min-width: 92px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+.hpm-app .hpm-fw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.hpm-app .hpm-fw-head h2 {
+  margin: 0;
+}
+
+.hpm-app .hpm-fw-top {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hpm-app .hpm-fw-top .hpm-fw-options {
+  flex: 0 1 auto;
+  margin-left: auto;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 52%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--progress-bg) 24%, transparent);
+}
+
+.hpm-app .hpm-fw-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.hpm-app .hpm-fw-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.hpm-app .hpm-fw-group-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.hpm-app .hpm-fw-group + .hpm-fw-group {
+  padding-left: 20px;
+  border-left: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
+}
+
+.hpm-app .hpm-fw-group-title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.hpm-app .hpm-image-type-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+
+.hpm-app .hpm-image-type-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.hpm-app .hpm-image-type-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hpm-app .hpm-image-type-controls select {
+  flex: 0 0 180px;
+  width: 180px;
+}
+
+.hpm-app .hpm-image-type-controls .hpm-fw-options {
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hpm-app .hpm-fw-group .hpm-image-type-field {
+  flex: 0 0 180px;
+  width: auto;
+  max-width: 100%;
+}
+
+.hpm-app .hpm-fw-target-row > .field:first-child {
+  flex: 0 0 180px;
+}
+
+.hpm-app .hpm-fw-target-row > .field:last-child {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.hpm-app .hpm-fw-group .hpm-fw-options {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.hpm-app .hpm-fw-section {
+  padding: 10px 16px 9px;
+}
+
+.hpm-app .hpm-fw-section > .hpm-file-field {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.hpm-fw-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 9px;
+}
+
+.hpm-app .hpm-file-field {
+  flex: 1.1;
+  min-width: 0;
+}
+
+.hpm-app .hpm-image-type-field {
+  flex: 0 0 150px;
+  min-width: 0;
+}
+
+.hpm-app .hpm-file-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 70%, transparent);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+.hpm-app .hpm-file-control input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hpm-app .hpm-file-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--button-primary) 36%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--button-primary) 10%, var(--card-bg));
+  color: color-mix(in srgb, var(--button-primary) 70%, var(--text-primary));
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-file-button:hover {
+  background: color-mix(in srgb, var(--button-primary) 18%, var(--card-bg));
+}
+
+.hpm-app .hpm-file-control input[type="file"]:focus-visible + .hpm-file-button {
+  outline: 2px solid var(--button-primary);
+  outline-offset: 2px;
+}
+
+.hpm-app .hpm-file-name {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hpm-app .hpm-file-name.has-file {
+  color: var(--text-primary);
+}
+
+.hpm-fw-options {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  padding-bottom: 2px;
+}
+
+.hpm-app .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.hpm-app .check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--button-primary);
+}
+
+.hpm-app select option,
+.hpm-config-modal select option {
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.hpm-app .info {
+  padding: 6px 9px;
+  border: 1px dashed color-mix(in srgb, var(--input-border) 65%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--progress-bg) 28%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.hpm-app .hpm-image-info {
+  margin-top: 9px;
+  min-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hpm-app .info.ok {
+  border-color: color-mix(in srgb, var(--progress-fill) 52%, transparent);
+  background: color-mix(in srgb, var(--progress-fill) 9%, var(--card-bg));
+  color: color-mix(in srgb, var(--progress-fill) 55%, var(--text-primary));
+}
+
+.hpm-app .info.error {
+  border-color: color-mix(in srgb, var(--error-color) 50%, transparent);
+  background: color-mix(in srgb, var(--error-color) 8%, var(--card-bg));
+  color: var(--error-color);
+}
+
+/* Connection details stay on the same compact strip row. */
+.hpm-app .hpm-conn-info:empty {
+  display: none;
+}
+
+.hpm-app .hpm-conn-info,
+.hpm-app .hpm-conn-info.ok,
+.hpm-app .hpm-conn-info.error {
+  flex: 0 1 auto;
+  max-width: 120px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Connection card with integrated status. */
+.hpm-app .hpm-connect-status {
+  grid-area: status;
+  min-width: 0;
+  max-width: 210px;
+  padding-right: 14px;
+  border-right: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
+}
+
+.hpm-status-label {
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hpm-status-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hpm-app .hpm-connect-status .hpm-status-line {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.hpm-app #connState {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hpm-app #connState::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.hpm-status-detail {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hpm-status-detail.ok {
+  color: color-mix(in srgb, var(--progress-fill) 55%, var(--text-primary));
+}
+
+.hpm-status-detail.error {
+  color: var(--error-color);
+}
+
+.hpm-status-detail:empty {
+  display: none;
+}
+
+.hpm-app .hpm-connect-bar {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) auto;
+  grid-template-areas: 'status fields actions';
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.hpm-app .hpm-connect-fields {
+  grid-area: fields;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.hpm-app .hpm-connect-fields .field {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-connect-fields .field > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.hpm-app .hpm-connect-fields .field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.hpm-app .hpm-connect-fields .hpm-interface-field select {
+  font-family: inherit;
+}
+
+.hpm-app .hpm-connect-fields .hpm-inline-check {
+  grid-column: 3;
+  align-self: center;
+  justify-self: start;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-connect-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-left: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
+}
+
+.hpm-app .hpm-connect-actions button {
+  min-width: 108px;
+}
+
+.hpm-app .hpm-connect-bar select,
+.hpm-app .hpm-connect-bar button {
+  box-sizing: border-box;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.hpm-app .hpm-connect-bar select {
+  padding: 0 9px;
+}
+
+.hpm-app .hpm-connect-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.hpm-app .hpm-connect-bar .hpm-soc-field select {
+  font-family: inherit;
+}
+
+.hpm-app .hpm-connect-bar select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.hpm-app .hpm-connect-bar button.primary {
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--button-primary) 18%, transparent);
+}
+
+.hpm-app .hpm-connect-bar button.danger:disabled {
+  border-color: color-mix(in srgb, var(--input-border) 75%, transparent);
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+/* Compact flash bar. */
+.hpm-flash-section {
+  padding: 12px 16px;
+}
+
+.hpm-flash-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hpm-app .hpm-flash-row h2 {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.hpm-progress-wrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 80px;
+}
+
+.hpm-app .progress {
+  height: 8px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--input-border) 45%, transparent);
+  border-radius: 999px;
+  background: var(--progress-bg);
+}
+
+.hpm-app .progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--button-primary), var(--progress-fill));
+  transition: width 0.18s ease;
+}
+
+.hpm-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.hpm-app #percentText {
+  color: var(--text-primary);
+}
+
+.hpm-flash-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.hpm-app .hpm-flash-actions button {
+  padding: 9px 16px;
+  font-size: 12px;
+}
+
+.hpm-app .hpm-flash-actions button.big {
+  padding: 10px 20px;
+  font-size: 13px;
+}
+
+
+/* Compact program action row; progress appears only while programming. */
+.hpm-app .hpm-program-section {
+  padding: 12px 16px;
+}
+
+.hpm-app .hpm-program-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hpm-app .hpm-program-row h2 {
+  margin: 0;
+}
+
+.hpm-app .hpm-program-row .hpm-flash-actions {
+  margin-left: auto;
+}
+
+.hpm-app .hpm-program-section .hpm-progress-wrap {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  margin-top: 10px;
+}
+
+.hpm-app .hpm-fw-actions {
+  width: 100%;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.hpm-app .hpm-section > .hpm-progress-wrap {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  margin-top: 10px;
+}
+
+/* Collapsible hints block below the log. */
+.hpm-tips-section {
+  padding: 12px 16px;
+}
+
+.hpm-app .hpm-tips-section summary {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hpm-app .hpm-tips-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.hpm-app .hpm-tips-section summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 14px;
+  color: var(--text-muted);
+}
+
+.hpm-app .hpm-tips-section[open] summary::before {
+  content: '▾';
+}
+
+.hpm-app .hpm-tips-section[open] summary {
+  margin-bottom: 7px;
+}
+
+.hpm-app .hpm-tips {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.hpm-app .hpm-tips li {
+  margin: 0 0 2px;
+}
+
+.hpm-app .hpm-tips li:last-child {
+  margin-bottom: 0;
+}
+
+.hpm-app .hpm-tips li::marker {
+  color: var(--button-primary);
+}
+
+/* Buttons. */
+.hpm-app button,
+.hpm-modal button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  margin: 0;
+  padding: 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 72%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--button-primary) 9%, var(--input-bg));
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease,
+    opacity 0.15s ease, color 0.3s ease;
+}
+
+.hpm-app button:hover:not(:disabled),
+.hpm-modal button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--button-primary) 60%, var(--input-border));
+  background: color-mix(in srgb, var(--button-primary) 18%, var(--input-bg));
+  color: var(--text-primary);
+}
+
+.hpm-app button:active:not(:disabled),
+.hpm-modal button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.hpm-app button:disabled,
+.hpm-modal button:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hpm-app button.primary,
+.hpm-modal button.primary {
+  border-color: transparent;
+  background: var(--button-primary-gradient);
+  color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--button-primary) 24%, transparent);
+}
+
+.hpm-app button.primary:hover:not(:disabled),
+.hpm-modal button.primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--button-primary-gradient-hover);
+  color: #fff;
+}
+
+.hpm-app button.primary:disabled,
+.hpm-modal button.primary:disabled {
+  color: #fff;
+}
+
+.hpm-app button.danger,
+.hpm-modal button.danger {
+  border-color: color-mix(in srgb, var(--error-color) 42%, transparent);
+  background: color-mix(in srgb, var(--error-color) 9%, var(--input-bg));
+  color: var(--error-color);
+}
+
+.hpm-app button.danger:hover:not(:disabled),
+.hpm-modal button.danger:hover:not(:disabled) {
+  border-color: var(--error-color);
+  background: color-mix(in srgb, var(--error-color) 16%, var(--input-bg));
+  color: var(--error-color);
+}
+
+/* Log panel fills the remaining screen height. */
+.hpm-log-card {
+  display: flex;
+  flex-direction: column;
+  height: 320px;
+  min-height: 260px;
+  max-height: 480px;
+  padding: 12px 14px;
+  position: static;
+  align-self: stretch;
+  border: 1px solid color-mix(in srgb, var(--input-border) 52%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--card-bg) 96%, var(--button-primary) 4%),
+      color-mix(in srgb, var(--card-bg) 91%, var(--button-primary) 9%)
+    );
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.hpm-log-card .log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.hpm-app .hpm-log-card .log-head h2 {
+  margin: 0;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hpm-log-card .log-head .row {
+  gap: 8px;
+}
+
+.hpm-log-card .log-head button {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.hpm-app .hpm-log-success {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 9px 34px 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--hpm-success) 38%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hpm-success) 9%, var(--card-bg));
+  color: var(--hpm-success);
+  text-align: center;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--hpm-success) 10%, transparent);
+}
+
+.hpm-app .hpm-log-success:not([hidden]) {
+  animation: hpm-success-pop 0.18s ease-out;
+}
+
+.hpm-app .hpm-log-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--hpm-success);
+  color: var(--card-bg);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hpm-app .hpm-log-success-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  text-align: center;
+}
+
+.hpm-app .hpm-log-success-copy strong {
+  color: var(--hpm-success);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hpm-app .hpm-log-success-detail {
+  max-width: 100%;
+  color: color-mix(in srgb, var(--hpm-success) 62%, var(--text-primary));
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hpm-app .hpm-log-success-close {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--hpm-success) 55%, var(--text-primary));
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpm-app .hpm-log-success-close:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--hpm-success) 14%, transparent);
+  color: var(--text-primary);
+}
+
+@keyframes hpm-success-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hpm-app .log {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 45%, transparent);
+  border-radius: 8px;
+  background-color: var(--log-bg);
+  color: var(--text-primary);
+  font-family: var(--font-monospace);
+  font-size: 11.5px;
+  line-height: 1.55;
+  scrollbar-color: var(--input-border) transparent;
+}
+
+
+.hpm-app .log-line {
+  display: grid;
+  grid-template-columns: 58px 44px minmax(0, 1fr);
+  gap: 7px;
+  padding: 1px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--input-border) 22%, transparent);
+  word-break: break-word;
+}
+
+.hpm-app .log-line:last-child {
+  border-bottom: none;
+}
+
+.hpm-app .log-time {
+  color: var(--text-muted);
+}
+
+.hpm-app .log-level {
+  padding-top: 1px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.hpm-app .log-msg {
+  white-space: pre-wrap;
+  color: var(--text-primary);
+}
+
+.hpm-app .log-line.debug .log-level,
+.hpm-app .log-line.debug .log-msg {
+  color: var(--text-muted);
+}
+
+.hpm-app .log-line.info .log-level {
+  color: var(--button-primary);
+}
+
+.hpm-app .log-line.warn .log-level {
+  color: var(--button-warning);
+}
+
+.hpm-app .log-line.warn .log-msg {
+  color: var(--text-primary);
+}
+
+.hpm-app .log-line.error .log-level {
+  color: var(--error-color);
+}
+
+.hpm-app .log-line.error .log-msg {
+  color: var(--error-color);
+}
+
+.hpm-app .log-line.success .log-level {
+  color: var(--hpm-success);
+}
+
+.hpm-app .log-line.success .log-msg {
+  color: color-mix(in srgb, var(--hpm-success) 55%, var(--text-primary));
+}
+
+/* Input with a gear action (Flash config generator). */
+.hpm-app .hpm-input-with-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hpm-app .hpm-input-with-action input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hpm-app .hpm-gear-btn {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  box-shadow: none;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpm-app .hpm-gear-btn:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--button-primary) 16%, var(--input-bg));
+  color: var(--text-primary);
+}
+
+/* Modal system. */
+.hpm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.hpm-modal {
+  width: min(520px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 65%, transparent);
+  border-radius: 14px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: 0 24px 80px var(--shadow-hover);
+  animation: hpm-modal-pop 0.16s ease-out;
+}
+
+@keyframes hpm-modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.hpm-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.hpm-modal-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--button-primary-gradient);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--button-primary) 28%, transparent);
+}
+
+.hpm-modal-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.hpm-modal h3 {
+  margin: 0 0 2px;
+  font-size: 17px;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.hpm-modal .hpm-modal-title-wrap p {
+  margin: 0;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hpm-modal p {
+  margin: 0 0 10px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.hpm-modal .hpm-modal-desc {
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.hpm-modal .hpm-modal-close {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hpm-modal .hpm-modal-close:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--error-color) 12%, var(--card-bg));
+  color: var(--error-color);
+}
+
+.hpm-modal code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--progress-bg);
+  font-family: var(--font-monospace);
+  font-size: 11px;
+}
+
+.hpm-modal .hpm-modal-hint {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--button-warning) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--button-warning) 12%, var(--card-bg));
+  color: var(--text-primary);
+}
+
+.hpm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.hpm-modal-actions button {
+  min-width: 92px;
+}
+
+/* Flash configuration word generator. */
+.hpm-config-modal {
+  width: min(860px, 100%);
+}
+
+.hpm-config-preset-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hpm-config-section {
+  margin-bottom: 10px;
+  padding: 10px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 50%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--progress-bg) 22%, transparent);
+}
+
+.hpm-config-section h4 {
+  margin: 0 0 8px;
+  color: var(--button-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.hpm-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.hpm-config-modal .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.hpm-config-modal input[type="text"],
+.hpm-config-modal input[type="number"],
+.hpm-config-modal select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--input-border);
+  border-radius: 5px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  outline: none;
+}
+
+.hpm-config-modal select {
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hpm-config-modal input:focus,
+.hpm-config-modal select:focus {
+  border-color: var(--button-primary);
+  box-shadow: 0 0 0 2px var(--focus-shadow);
+}
+
+.hpm-config-grid .field {
+  font-size: 11px;
+}
+
+.hpm-config-modal .hpm-config-grid select,
+.hpm-config-modal .hpm-config-grid input[type="text"],
+.hpm-config-modal .hpm-config-grid input[type="number"] {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.hpm-config-preview {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--button-primary) 32%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--button-primary) 8%, var(--card-bg));
+}
+
+.hpm-config-preview-label {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.hpm-config-preview-value {
+  color: var(--button-primary);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.hpm-config-preview-hint {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+/* Vendor-style flash configuration table. */
+.hpm-config-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--input-border) 40%, transparent);
+}
+
+.hpm-config-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hpm-config-custom input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--button-primary);
+}
+
+.hpm-config-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.hpm-config-preset select {
+  width: min(320px, 50vw);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 5px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.hpm-config-table {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--input-border) 55%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--progress-bg) 18%, transparent);
+}
+
+.hpm-config-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid color-mix(in srgb, var(--input-border) 35%, transparent);
+}
+
+.hpm-config-row:first-child {
+  border-top: none;
+}
+
+.hpm-config-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 7px 10px;
+  border-right: 1px solid color-mix(in srgb, var(--input-border) 35%, transparent);
+}
+
+.hpm-config-pair:nth-child(2) {
+  border-right: none;
+}
+
+.hpm-config-pair > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.hpm-config-pair select,
+.hpm-config-pair input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 5px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  outline: none;
+}
+
+.hpm-config-pair select {
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hpm-config-pair select:focus,
+.hpm-config-pair input:focus {
+  border-color: var(--button-primary);
+  box-shadow: 0 0 0 2px var(--focus-shadow);
+}
+
+.hpm-config-modal.hpm-config-disabled .hpm-config-table,
+.hpm-config-modal.hpm-config-disabled .hpm-config-advanced {
+  opacity: 0.55;
+}
+
+.hpm-config-modal.hpm-config-disabled .hpm-config-pair select,
+.hpm-config-modal.hpm-config-disabled .hpm-config-pair input,
+.hpm-config-modal.hpm-config-disabled .hpm-config-advanced select,
+.hpm-config-modal.hpm-config-disabled .hpm-config-advanced input {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hpm-config-advanced {
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--input-border) 45%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--progress-bg) 18%, transparent);
+}
+
+.hpm-config-advanced summary {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hpm-config-advanced-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+
+.hpm-config-advanced-grid .field {
+  font-size: 11px;
+}
+
+.hpm-config-modal .hpm-config-advanced-grid input,
+.hpm-config-modal .hpm-config-advanced-grid select {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+@media (max-width: 1120px) {
+  .hpm-log-card {
+    height: 300px;
+    max-height: 340px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hpm-app .hpm-connect-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'status actions'
+      'fields fields';
+  }
+
+  .hpm-app .hpm-connect-status {
+    max-width: none;
+  }
+
+  .hpm-app .hpm-connect-actions {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .hpm-app .hpm-fw-drop-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .hpm-config-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hpm-config-pair {
+    border-right: none;
+    border-top: 1px solid color-mix(in srgb, var(--input-border) 35%, transparent);
+  }
+
+  .hpm-config-pair:first-child {
+    border-top: none;
+  }
+
+  .hpm-config-advanced-grid {
+    grid-template-columns: 1fr;
+  }
+  .hpm-app {
+    padding: 18px;
+  }
+
+  .hpm-header {
+    margin-top: 8px;
+  }
+
+  .hpm-app .hpm-header h2 {
+    font-size: 24px;
+  }
+
+  .hpm-fw-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hpm-fw-grid.hpm-fw-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hpm-fw-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hpm-app .hpm-image-type-field,
+  .hpm-app .hpm-fw-group .hpm-image-type-field {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .hpm-app .hpm-fw-columns {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .hpm-app .hpm-fw-group + .hpm-fw-group {
+    padding-top: 14px;
+    padding-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--input-border) 42%, transparent);
+    border-left: 0;
+  }
+
+  .hpm-app .hpm-fw-group-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hpm-app .hpm-image-type-controls select {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .hpm-app .hpm-fw-target-row > .field:first-child,
+  .hpm-app .hpm-fw-target-row > .field:last-child {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .hpm-app .hpm-connect-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .hpm-app .hpm-connect-fields .hpm-inline-check {
+    grid-column: auto;
+  }
+
+  .hpm-app .hpm-connect-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 540px) {
+  .hpm-fw-grid.hpm-fw-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .hpm-fw-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hpm-program-row {
+    flex-wrap: wrap;
+  }
+
+  .hpm-flash-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
