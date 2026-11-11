@@ -1,7 +1,16 @@
 import { MEM } from './protocol.js';
 import { RomClient } from './rom-client.js';
 import { HidTransport, SerialTransport } from './transports.js';
-import { detectImageLayout, parseImage, readFileBytes, configWordsToText } from './image.js';
+import {
+  detectHexImageLayout,
+  detectImageLayout,
+  isHexFileName,
+  parseHexImage,
+  parseImage,
+  readFileBytes,
+  configWordsToText,
+} from './image.js';
+import { parseHex } from './hex.js';
 import {
   AbortError,
   RomError,
@@ -156,7 +165,12 @@ const state = {
   transport: null,
   client: null,
   imageBuffer: null,
+  imageName: null,
+  imageText: null,
   image: null,
+  // Flash Configuration Words source: 'custom' > 'image' > 'soc' (see
+  // applySocDefaultConfig / applyImageConfig).
+  configSource: null,
   busy: false,
   connecting: false,
   bootloaderReady: false,
@@ -878,6 +892,15 @@ async function getFirmware(soc) {
   return data;
 }
 
+function getImageLayoutForFile() {
+  if (!state.imageBuffer) return null;
+  if (isHexFileName(state.imageName)) {
+    if (!state.imageText) return null;
+    return detectHexImageLayout(parseHex(state.imageText));
+  }
+  return detectImageLayout(state.imageBuffer);
+}
+
 function refreshImage() {
   hideLogSuccess();
   if (!state.imageBuffer) {
@@ -887,14 +910,21 @@ function refreshImage() {
   }
   try {
     const isBootImage = getImageType() === 'boot';
-    const image = parseImage(state.imageBuffer, {
+    const options = {
       address: els.address.value.trim() ? parseU32(els.address.value) : undefined,
       configWordsText: els.configWords.value,
       detectLayout: isBootImage,
-    });
+    };
+    const image = isHexFileName(state.imageName)
+      ? parseHexImage(state.imageText, options)
+      : parseImage(state.imageBuffer, options);
     state.image = image;
 
-    log('info', `File size: ${formatBytesCount(state.imageBuffer.length)}`);
+    log(
+      'info',
+      `File size: ${formatBytesCount(state.imageBuffer.length)}` +
+        (image.format === 'hex' ? ' (Intel HEX)' : ''),
+    );
     if (isBootImage) {
       if (image.detectedConfig) {
         log(
@@ -922,7 +952,26 @@ function refreshImage() {
         `Manual write address differs from auto-detected ${hex0x(image.detectedAddress, 8)}`,
       );
     }
-    log('info', `Write data: ${formatBytesCount(image.imageData.length)} (whole file)`);
+    if (image.segments.length > 1) {
+      const preview = image.segments
+        .slice(0, 8)
+        .map((segment) => `${hex0x(segment.address, 8)}+${formatBytesCount(segment.data.length)}`)
+        .join(', ');
+      log(
+        'info',
+        `Write segments: ${preview}` +
+          (image.segments.length > 8 ? `, ... (${image.segments.length} total)` : ''),
+      );
+    }
+    log(
+      'info',
+      `Write data: ${formatBytesCount(image.size)}` +
+        (image.format === 'hex'
+          ? image.segments.length > 1
+            ? ` (${image.segments.length} HEX segments)`
+            : ' (HEX addresses)'
+          : ' (whole file)'),
+    );
   } catch (error) {
     state.image = null;
     log('error', `Image parse failed: ${error.message}`);
@@ -933,11 +982,9 @@ function refreshImage() {
 function onImageTypeChange() {
   const type = getImageType();
   if (type === 'boot' && state.imageBuffer) {
-    const layout = detectImageLayout(state.imageBuffer);
-    if (layout.config?.words) {
-      els.configWords.value = configWordsToText(layout.config.words);
-    }
-    if (layout.baseAddress !== null && layout.baseAddress !== undefined) {
+    const layout = getImageLayoutForFile();
+    applyImageConfig(layout, { logChange: true });
+    if (layout?.baseAddress !== null && layout?.baseAddress !== undefined) {
       els.address.value = `0x${layout.baseAddress.toString(16)}`;
     }
   }
@@ -957,6 +1004,20 @@ const FLASH_CONFIG_PRESETS = {
   hpm6750evk: [0xfcf90002, 0x00000007, 0x0000000e, 0x00000000],
 };
 
+// Default flash configuration used by each SoC family's EVK board. The
+// vendor GUI calls these "typical" configurations.
+const SOC_DEFAULT_CONFIG_PRESET = {
+  HPM5100: 'hpm5300evk',
+  HPM5300: 'hpm5300evk',
+  HPM5E00: 'hpm5300evk',
+  HPM6P00: 'hpm5300evk',
+  HPM6200: 'typical_a0',
+  HPM6300: 'typical_a0',
+  HPM6800: 'typical_a0',
+  HPM6E00: 'typical_a0',
+  HPM6700_HPM6400: 'hpm6750evk',
+};
+
 const CONFIG_FIELD_IDS = [
   'cfgProbe',
   'cfgReadLines',
@@ -971,6 +1032,105 @@ const CONFIG_FIELD_IDS = [
   'cfgDrive',
   'cfgFlashSize',
 ];
+
+function normalizeConfigWords(words) {
+  return [...words, 0, 0, 0, 0].slice(0, 4).map((word) => word >>> 0);
+}
+
+function parseConfigWordsInput(text) {
+  const words = parseWordList(text);
+  if (words.length > 4) {
+    throw new Error('Expected at most four 32-bit words');
+  }
+  return normalizeConfigWords(words);
+}
+
+function formatConfigWordsInput(words) {
+  return formatFlashConfig(normalizeConfigWords(words));
+}
+
+function getSocDefaultConfigWords(soc = els.socSelect.value) {
+  const presetKey = SOC_DEFAULT_CONFIG_PRESET[soc];
+  return presetKey ? FLASH_CONFIG_PRESETS[presetKey] : null;
+}
+
+function setConfigWordsFromSource(words, source, { logChange = false } = {}) {
+  const text = formatConfigWordsInput(words);
+  const changed = els.configWords.value !== text;
+  if (changed) els.configWords.value = text;
+  state.configSource = source;
+  if (changed && logChange) {
+    log('info', `Flash Configuration Words from ${source}: ${text}`);
+  }
+  return changed;
+}
+
+/**
+ * Apply the selected SoC's default words unless the user has custom words.
+ * A detected image always outranks the SoC default; `force` is used when the
+ * current words came from an image that is no longer selected.
+ */
+function applySocDefaultConfig({ force = false, logChange = false } = {}) {
+  if (state.configSource === 'custom') return false;
+  if (!force && state.configSource === 'image') return false;
+  const words = getSocDefaultConfigWords();
+  if (!words) {
+    // No SoC selected: drop image-derived words so a later SoC choice can
+    // apply its default.
+    if (force) state.configSource = null;
+    return false;
+  }
+  return setConfigWordsFromSource(words, 'soc', { logChange });
+}
+
+/**
+ * Apply image-detected words unless the user has custom words. If an image
+ * that previously supplied words is replaced by one without a config block,
+ * fall back to the SoC default.
+ */
+function applyImageConfig(layout, { logChange = false } = {}) {
+  if (state.configSource === 'custom') return false;
+  if (layout?.config?.words) {
+    return setConfigWordsFromSource(layout.config.words, 'image', { logChange });
+  }
+  if (state.configSource === 'image') {
+    return applySocDefaultConfig({ force: true, logChange });
+  }
+  return false;
+}
+
+// Source that Apply in the config dialog will commit: 'image' or 'soc' when
+// the user picked Auto, otherwise 'custom' (or the source it opened with).
+let pendingConfigSource = null;
+
+/** Words that automatic priority would use for the current image / SoC. */
+function computeAutoConfig() {
+  if (state.imageBuffer && getImageType() === 'boot') {
+    const layout = getImageLayoutForFile();
+    if (layout?.config?.words) {
+      return { words: layout.config.words, source: 'image' };
+    }
+  }
+  const socWords = getSocDefaultConfigWords();
+  if (socWords) return { words: socWords, source: 'soc' };
+  return null;
+}
+
+/** Preview the automatic image/SoC words without committing them yet. */
+function useAutoFlashConfig() {
+  const auto = computeAutoConfig();
+  if (!auto) {
+    pendingConfigSource = null;
+    els.flashConfigPreset.value = 'auto';
+    return;
+  }
+  pendingConfigSource = auto.source;
+  const words = normalizeConfigWords(auto.words);
+  setFlashConfigForm(decodeFlashConfig(words), { syncWords: false });
+  els.flashConfigPreview.value = formatFlashConfig(words);
+  els.flashConfigPreview.classList.remove('is-invalid');
+  els.flashConfigPreset.value = 'auto';
+}
 
 function decodeFlashConfig(words) {
   const normalized = [...words, 0, 0, 0, 0].slice(0, 4).map((word) => word >>> 0);
@@ -1062,7 +1222,7 @@ function setConfigFieldsEnabled(enabled) {
   els.flashConfigApplyBtn.disabled = !enabled;
 }
 
-function setFlashConfigForm(values) {
+function setFlashConfigForm(values, { syncWords = true } = {}) {
   setSelectValue(els.cfgProbe, values.probe);
   setSelectValue(els.cfgReadLines, values.readLines);
   setSelectValue(els.cfgConfigLines, values.configLines);
@@ -1076,7 +1236,7 @@ function setFlashConfigForm(values) {
   els.cfgDrive.value = String(values.drive);
   setSelectValue(els.cfgFlashSize, values.flashSize);
   setConfigFieldsEnabled(true);
-  updateFlashConfigPreview();
+  if (syncWords) updateFlashConfigPreview();
 
   const current = formatFlashConfig(buildFlashConfigWords());
   const matched = Object.entries(FLASH_CONFIG_PRESETS).find(
@@ -1086,16 +1246,28 @@ function setFlashConfigForm(values) {
 }
 
 function updateFlashConfigPreview() {
-  els.flashConfigPreview.textContent = formatFlashConfig(buildFlashConfigWords());
+  els.flashConfigPreview.value = formatFlashConfig(buildFlashConfigWords());
+}
+
+function syncFlashConfigFormFromText(text) {
+  try {
+    const words = parseConfigWordsInput(text);
+    setFlashConfigForm(decodeFlashConfig(words));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function openFlashConfigDialog() {
   let words;
   try {
-    words = parseWordList(els.configWords.value);
+    words = parseConfigWordsInput(els.configWords.value);
   } catch {
-    words = FLASH_CONFIG_PRESETS.hpm5300evk;
+    words = getSocDefaultConfigWords() || FLASH_CONFIG_PRESETS.hpm5300evk;
   }
+  pendingConfigSource = state.configSource || null;
+  els.flashConfigPreview.classList.remove('is-invalid');
   setFlashConfigForm(decodeFlashConfig(words));
   els.flashConfigModal.hidden = false;
   els.cfgProbe.focus();
@@ -1106,8 +1278,19 @@ function closeFlashConfigDialog() {
 }
 
 function applyFlashConfig() {
-  const text = formatFlashConfig(buildFlashConfigWords());
+  let words;
+  try {
+    words = parseConfigWordsInput(els.flashConfigPreview.value);
+  } catch (error) {
+    els.flashConfigPreview.classList.add('is-invalid');
+    log('error', `Invalid Flash Configuration Words: ${error.message}`);
+    els.flashConfigPreview.focus();
+    return;
+  }
+  els.flashConfigPreview.classList.remove('is-invalid');
+  const text = formatConfigWordsInput(words);
   els.configWords.value = text;
+  state.configSource = pendingConfigSource;
   closeFlashConfigDialog();
   refreshImage();
   log('info', `Flash configuration words updated: ${text}`);
@@ -1116,28 +1299,48 @@ function applyFlashConfig() {
 async function loadImageFile(file) {
   hideLogSuccess();
   setImageFileName(file ? file.name : '');
+  state.imageName = file ? file.name : null;
+  state.imageText = null;
   if (!file) {
     state.imageBuffer = null;
     state.image = null;
+    if (state.configSource === 'image') {
+      applySocDefaultConfig({ force: true, logChange: true });
+    }
     updateUi();
     return;
   }
   try {
     state.imageBuffer = await readFileBytes(file);
+    const isHex = isHexFileName(file.name);
+    if (isHex) {
+      state.imageText = new TextDecoder().decode(state.imageBuffer);
+    }
     // Boot images carry the Flash configuration block and write address.
-    // User data is written as-is at the address entered by the user.
-    if (getImageType() === 'boot') {
-      const layout = detectImageLayout(state.imageBuffer);
-      if (layout.config?.words) {
-        els.configWords.value = configWordsToText(layout.config.words);
-      }
-      if (layout.baseAddress !== null && layout.baseAddress !== undefined) {
-        els.address.value = `0x${layout.baseAddress.toString(16)}`;
-      }
+    // User data is written as-is at the address entered by the user. HEX files
+    // always use their embedded addresses, so show the lowest one.
+    const isBoot = getImageType() === 'boot';
+    const layout = isBoot || isHex ? getImageLayoutForFile() : null;
+    if (isBoot) {
+      applyImageConfig(layout, { logChange: true });
+    } else if (state.configSource === 'image') {
+      // A new image without a detected config block means the previous image
+      // no longer supplies the words.
+      applySocDefaultConfig({ force: true, logChange: true });
+    }
+    if (layout?.baseAddress !== null && layout?.baseAddress !== undefined) {
+      els.address.value = `0x${layout.baseAddress.toString(16)}`;
     }
     log('info', `Image selected: ${file.name} (${imageTypeLabel()})`);
     refreshImage();
   } catch (error) {
+    state.imageBuffer = null;
+    state.imageText = null;
+    state.image = null;
+    if (state.configSource === 'image') {
+      applySocDefaultConfig({ force: true, logChange: true });
+    }
+    updateUi();
     log('error', `Failed to read image: ${error.message}`);
   }
 }
@@ -1684,75 +1887,115 @@ async function flash() {
     setProgress(25, 'Configuring XPI NOR...');
     await client.configMemory(MEM.XPI0_NOR, 0x200);
 
-    // 4. Write the image.
-    setProgress(26, 'Writing image...');
-    await client.writeMemory(
-      MEM.XPI0_NOR,
-      image.address,
-      image.imageData,
-      (done, total) => {
-        setProgress(26 + (done / total) * 64, `Writing image: ${done}/${total}`);
-      },
-      30000,
+    // 4. Write the image. A BIN is one segment; a HEX file may have several
+    // discontiguous address ranges.
+    const segments = image.segments;
+    const totalImageBytes = segments.reduce(
+      (sum, segment) => sum + segment.data.length,
+      0,
     );
+    setProgress(26, 'Writing image...');
+    let writtenBytes = 0;
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = segments[index];
+      const label =
+        segments.length > 1
+          ? `Writing segment ${index + 1}/${segments.length} @${hex0x(segment.address, 8)}`
+          : 'Writing image';
+      await client.writeMemory(
+        MEM.XPI0_NOR,
+        segment.address,
+        segment.data,
+        (done, total) => {
+          const overall = (writtenBytes + done) / totalImageBytes;
+          setProgress(26 + overall * 64, `${label}: ${done}/${total}`);
+        },
+        30000,
+      );
+      writtenBytes += segment.data.length;
+    }
 
     // 5. Verify. Use the ROM verify command when available; otherwise read
     // the flash back and compare it byte-for-byte in the browser.
     if (els.verifyAfter.checked) {
       if (state.verifySupported) {
-        setProgress(92, 'Verifying SHA-256...', 'verify');
-        await client.verifyChecksum(MEM.XPI0_NOR, image.address, image.imageData, 60000);
+        let verifiedBytes = 0;
+        for (let index = 0; index < segments.length; index += 1) {
+          const segment = segments[index];
+          setProgress(
+            92 + (verifiedBytes / totalImageBytes) * 6,
+            segments.length > 1
+              ? `Verifying segment ${index + 1}/${segments.length}...`
+              : 'Verifying SHA-256...',
+            'verify',
+          );
+          await client.verifyChecksum(MEM.XPI0_NOR, segment.address, segment.data, 60000);
+          verifiedBytes += segment.data.length;
+        }
+        setProgress(98, 'Verification passed', 'verify');
       } else {
         log(
           'info',
           'verify-checksum is unavailable; reading back the written flash for verification...',
         );
-        setProgress(92, 'Reading back for verification...', 'verify');
-        const readback = await client.readMemory(
-          MEM.XPI0_NOR,
-          image.address,
-          image.imageData.length,
-          (done, total) => {
-            setProgress(
-              92 + (done / total) * 6,
-              `Verifying read-back: ${formatBytesCount(done)} / ${formatBytesCount(total)}`,
-              'verify',
+        let verifiedBytes = 0;
+        for (let index = 0; index < segments.length; index += 1) {
+          const segment = segments[index];
+          setProgress(
+            92 + (verifiedBytes / totalImageBytes) * 6,
+            segments.length > 1
+              ? `Reading back segment ${index + 1}/${segments.length}...`
+              : 'Reading back for verification...',
+            'verify',
+          );
+          const readback = await client.readMemory(
+            MEM.XPI0_NOR,
+            segment.address,
+            segment.data.length,
+            (done, total) => {
+              setProgress(
+                92 + ((verifiedBytes + done) / totalImageBytes) * 6,
+                `Verifying read-back: ${formatBytesCount(done)} / ${formatBytesCount(total)}`,
+                'verify',
+              );
+            },
+            60000,
+          );
+          const expectedDigest = await sha256Hex(segment.data);
+          const readbackDigest = await sha256Hex(readback);
+          if (expectedDigest && readbackDigest && expectedDigest === readbackDigest) {
+            log(
+              'info',
+              `Read-back SHA-256${segments.length > 1 ? ` @${hex0x(segment.address, 8)}` : ''}: ${readbackDigest}`,
             );
-          },
-          60000,
-        );
-        const expectedDigest = await sha256Hex(image.imageData);
-        const readbackDigest = await sha256Hex(readback);
-        if (expectedDigest && readbackDigest && expectedDigest === readbackDigest) {
-          log('info', `Read-back SHA-256: ${readbackDigest}`);
-          setProgress(98, 'Read-back verification passed', 'verify');
-          log('success', 'Read-back verification passed');
-        } else {
-          // Hash mismatch (or hashing unavailable): locate the first byte
-          // difference so the user knows where programming failed.
-          let mismatch = -1;
-          for (let index = 0; index < readback.length; index += 1) {
-            if (readback[index] !== image.imageData[index]) {
-              mismatch = index;
-              break;
+          } else {
+            // Hash mismatch (or hashing unavailable): locate the first byte
+            // difference so the user knows where programming failed.
+            let mismatch = -1;
+            for (let offset = 0; offset < readback.length; offset += 1) {
+              if (readback[offset] !== segment.data[offset]) {
+                mismatch = offset;
+                break;
+              }
+            }
+            if (mismatch >= 0) {
+              throw new Error(
+                `Read-back verification failed at ${hex0x(segment.address + mismatch, 8)} ` +
+                  `(expected 0x${segment.data[mismatch].toString(16).padStart(2, '0')}, ` +
+                  `got 0x${readback[mismatch].toString(16).padStart(2, '0')})`,
+              );
+            }
+            if (expectedDigest && readbackDigest) {
+              throw new Error(
+                `Read-back SHA-256 mismatch at ${hex0x(segment.address, 8)} ` +
+                  `(expected ${expectedDigest}, got ${readbackDigest})`,
+              );
             }
           }
-          if (mismatch >= 0) {
-            throw new Error(
-              `Read-back verification failed at ${hex0x(image.address + mismatch, 8)} ` +
-                `(expected 0x${image.imageData[mismatch].toString(16).padStart(2, '0')}, ` +
-                `got 0x${readback[mismatch].toString(16).padStart(2, '0')})`,
-            );
-          }
-          if (expectedDigest && readbackDigest) {
-            throw new Error(
-              `Read-back SHA-256 mismatch (expected ${expectedDigest}, got ${readbackDigest})`,
-            );
-          }
-          // SHA-256 is unavailable but the byte comparison passed.
-          setProgress(98, 'Read-back verification passed', 'verify');
-          log('success', 'Read-back verification passed (byte comparison)');
+          verifiedBytes += segment.data.length;
         }
+        setProgress(98, 'Read-back verification passed', 'verify');
+        log('success', 'Read-back verification passed');
       }
     }
 
@@ -1864,8 +2107,26 @@ function init() {
     if (event.target === els.flashConfigModal) closeFlashConfigDialog();
   });
   els.flashConfigPreset.addEventListener('change', () => {
+    if (els.flashConfigPreset.value === 'auto') {
+      useAutoFlashConfig();
+      return;
+    }
     const preset = FLASH_CONFIG_PRESETS[els.flashConfigPreset.value];
-    if (preset) setFlashConfigForm(decodeFlashConfig(preset));
+    if (preset) {
+      pendingConfigSource = 'custom';
+      setFlashConfigForm(decodeFlashConfig(preset));
+    }
+  });
+  els.flashConfigPreview.addEventListener('input', () => {
+    pendingConfigSource = 'custom';
+    els.flashConfigPreview.classList.remove('is-invalid');
+    try {
+      const words = parseConfigWordsInput(els.flashConfigPreview.value);
+      // Words -> GUI. Do not rewrite the field the user is typing in.
+      setFlashConfigForm(decodeFlashConfig(words), { syncWords: false });
+    } catch {
+      // Keep the last valid GUI state while the text is incomplete.
+    }
   });
   els.cfgCustomEnabled.addEventListener('change', () => {
     setConfigFieldsEnabled(els.cfgCustomEnabled.checked);
@@ -1875,7 +2136,9 @@ function init() {
     const field = els[id];
     if (!field) continue;
     const markCustom = () => {
+      pendingConfigSource = 'custom';
       els.flashConfigPreset.value = 'custom';
+      // GUI -> words.
       updateFlashConfigPreview();
     };
     field.addEventListener('change', markCustom);
@@ -1895,8 +2158,26 @@ function init() {
   els.imageType.addEventListener('change', onImageTypeChange);
   els.imageFile.addEventListener('change', onImageFileChange);
   initImageDropZone();
-  els.socSelect.addEventListener('change', updateUi);
-  els.configWords.addEventListener('change', refreshImage);
+  els.socSelect.addEventListener('change', () => {
+    const changed = applySocDefaultConfig({ logChange: true });
+    updateUi();
+    if (changed) refreshImage();
+  });
+  els.configWords.addEventListener('input', () => {
+    state.configSource = 'custom';
+    syncFlashConfigFormFromText(els.configWords.value);
+  });
+  els.configWords.addEventListener('change', () => {
+    state.configSource = 'custom';
+    try {
+      const words = parseConfigWordsInput(els.configWords.value);
+      els.configWords.value = formatConfigWordsInput(words);
+      syncFlashConfigFormFromText(els.configWords.value);
+    } catch (error) {
+      log('error', `Invalid Flash Configuration Words: ${error.message}`);
+    }
+    refreshImage();
+  });
   els.address.addEventListener('change', refreshImage);
 
   els.debugLog.addEventListener('change', () => {

@@ -1,5 +1,6 @@
 import { parseWordList, wordsToBytes } from './util.js';
 import { readU32 } from './protocol.js';
+import { parseHex } from './hex.js';
 
 /** Tags 0xFCF90001 / 0xFCF90002 / ... share the high 16 bits. */
 export const CONFIG_TAG_MASK = 0xffff0000;
@@ -25,33 +26,42 @@ export function isConfigTag(tag) {
 }
 
 /**
- * Detect a 0xFCF9xxxx configuration block.
+ * Read a 0xFCF9xxxx configuration block at a known offset.
  *
  * The low 16 bits of the tag (the "word number" in the manufacturing tool)
  * indicate how many extra 32-bit words follow the tag. The tool always pads
  * the result to 4 words, so we do the same.
  */
+function readConfigAt(data, offset) {
+  if (!data || offset < 0 || offset + 4 > data.length) return null;
+  const tag = readU32(data, offset);
+  if (!isConfigTag(tag)) return null;
+  const wordCount = tag & 0xffff;
+  const words = [];
+  const count = Math.min(1 + wordCount, 16);
+  for (let index = 0; index < count; index++) {
+    const wordOffset = offset + index * 4;
+    if (wordOffset + 4 > data.length) break;
+    words.push(readU32(data, wordOffset));
+  }
+  while (words.length < 4) words.push(0);
+  return {
+    offset,
+    tag,
+    wordCount,
+    words: words.slice(0, 4),
+  };
+}
+
+/**
+ * Detect a 0xFCF9xxxx configuration block near the start of an image.
+ */
 export function findConfigBlock(data) {
   if (!data || data.length < 4) return null;
   for (const offset of SCAN_OFFSETS) {
     if (offset + 4 > data.length) break;
-    const tag = readU32(data, offset);
-    if (!isConfigTag(tag)) continue;
-    const wordCount = tag & 0xffff;
-    const words = [];
-    const count = Math.min(1 + wordCount, 16);
-    for (let index = 0; index < count; index++) {
-      const wordOffset = offset + index * 4;
-      if (wordOffset + 4 > data.length) break;
-      words.push(readU32(data, wordOffset));
-    }
-    while (words.length < 4) words.push(0);
-    return {
-      offset,
-      tag,
-      wordCount,
-      words: words.slice(0, 4),
-    };
+    const config = readConfigAt(data, offset);
+    if (config) return config;
   }
   return null;
 }
@@ -168,6 +178,156 @@ export function detectImageLayout(data) {
   };
 }
 
+/** Intel HEX files carry their own load addresses. */
+export function isHexFileName(name) {
+  return /\.(hex|ihex|ihx)$/i.test(String(name || ''));
+}
+
+/**
+ * Find the 0xFCF9xxxx configuration block inside parsed HEX segments.
+ *
+ * Prefer the SDK's standard config address when a segment covers it; otherwise
+ * scan the start of each segment.
+ */
+function findConfigInSegments(segments) {
+  for (const segment of segments) {
+    const relative = FLASH_CONFIG_ADDRESS - segment.address;
+    if (relative < 0 || relative + 4 > segment.data.length) continue;
+    const config = readConfigAt(segment.data, relative);
+    if (config) {
+      return {
+        segment,
+        relative,
+        address: FLASH_CONFIG_ADDRESS,
+        config,
+      };
+    }
+  }
+
+  for (const segment of segments) {
+    const config = findConfigBlock(segment.data);
+    if (config) {
+      return {
+        segment,
+        relative: config.offset,
+        address: (segment.address + config.offset) >>> 0,
+        config,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Determine the layout of parsed HEX segments.
+ *
+ * Unlike a raw BIN, the load addresses come from the HEX records, so the
+ * lowest segment address is the natural base address.
+ */
+export function detectHexImageLayout(segments) {
+  const baseAddress =
+    segments.length > 0
+      ? segments.reduce((lowest, segment) => Math.min(lowest, segment.address), 0xffffffff)
+      : null;
+  const configHit = findConfigInSegments(segments);
+  const config = configHit ? configHit.config : null;
+  const configOffset = configHit ? configHit.address : null;
+
+  let bootHeader = null;
+  let bootHeaderOffset = null;
+  for (const segment of segments) {
+    const relativeConfigOffset =
+      configHit && configHit.segment === segment ? configHit.relative : null;
+    const header = findBootHeader(segment.data, relativeConfigOffset);
+    if (header) {
+      bootHeader = header;
+      bootHeaderOffset = (segment.address + header.offset) >>> 0;
+      break;
+    }
+  }
+
+  let appOffset = null;
+  let appLoadAddress = null;
+  let appSize = null;
+  if (bootHeader && bootHeader.fwInfo.length > 0) {
+    const firmware = bootHeader.fwInfo[0];
+    appOffset = (bootHeaderOffset + firmware.offset) >>> 0;
+    appLoadAddress = firmware.loadAddress;
+    appSize = firmware.size;
+  }
+
+  return {
+    config,
+    bootHeader,
+    configOffset,
+    baseAddress,
+    bootHeaderOffset,
+    appOffset,
+    appLoadAddress,
+    appSize,
+  };
+}
+
+/**
+ * Parse Intel HEX text for the flasher.
+ *
+ * The write address shown in the UI is the lowest segment address. If the
+ * user edits it, every segment is shifted by the same delta, which also makes
+ * relative-address HEX files usable.
+ */
+export function parseHexImage(text, options = {}) {
+  const parsed = parseHex(text);
+  if (parsed.length === 0) throw new Error('HEX file does not contain data records');
+
+  const detectedAddress = parsed[0].address;
+  const requestedAddress = options.address;
+  const address =
+    requestedAddress === undefined || requestedAddress === null
+      ? detectedAddress
+      : requestedAddress >>> 0;
+  const delta = address - detectedAddress;
+
+  const segments = parsed.map((segment) => {
+    const shifted = segment.address + delta;
+    if (!Number.isSafeInteger(shifted) || shifted < 0 || shifted > 0xffffffff) {
+      throw new Error('HEX address rebase exceeds the 32-bit address space');
+    }
+    return { address: shifted >>> 0, data: segment.data };
+  });
+
+  const detectLayout = options.detectLayout !== false;
+  const layout = detectLayout ? detectHexImageLayout(segments) : null;
+  const manualWords = options.configWordsText
+    ? parseWordList(options.configWordsText)
+    : null;
+  const configWords =
+    manualWords && manualWords.length > 0
+      ? manualWords
+      : layout?.config?.words || parseWordList(DEFAULT_FLASH_CONFIG);
+  const size = segments.reduce((sum, segment) => sum + segment.data.length, 0);
+
+  return {
+    format: 'hex',
+    original: text,
+    segments,
+    imageData: null,
+    size,
+    address,
+    detectedAddress,
+    addressOverridden: address !== detectedAddress,
+    configWords,
+    configBytes: wordsToBytes(configWords),
+    detectedConfig: detectLayout && !!layout?.config,
+    configOffset: detectLayout ? layout?.configOffset ?? null : null,
+    detectedBootHeader: detectLayout && !!layout?.bootHeader,
+    bootHeaderOffset: detectLayout ? layout?.bootHeaderOffset ?? null : null,
+    bootHeader: detectLayout ? layout?.bootHeader ?? null : null,
+    appOffset: detectLayout ? layout?.appOffset ?? null : null,
+    appLoadAddress: detectLayout ? layout?.appLoadAddress ?? null : null,
+    appSize: detectLayout ? layout?.appSize ?? null : null,
+  };
+}
+
 /**
  * Parse an image for the flasher.
  *
@@ -194,10 +354,14 @@ export function parseImage(data, options = {}) {
     ? layout?.baseAddress ?? DEFAULT_FLASH_ADDRESS
     : DEFAULT_FLASH_ADDRESS;
   const address = options.address ?? detectedAddress;
+  const imageData = data.slice();
 
   return {
+    format: 'bin',
     original: data,
-    imageData: data.slice(),
+    segments: [{ address: address >>> 0, data: imageData }],
+    imageData,
+    size: imageData.length,
     address: address >>> 0,
     detectedAddress,
     addressOverridden:

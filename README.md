@@ -12,10 +12,19 @@ Pure web-based HPMicro ISP programmer for UART (Web Serial) and USB-HID (WebHID)
 4. Configure the image options first:
    - Choose **Image Type**:
      - **Boot Image**: auto-detects the `0xFCF9xxxx` configuration block, boot header, and write address when a file is loaded.
-     - **User Data**: writes the file as-is at the address you enter and does not parse configuration words from the image.
+     - **User Data**: writes BIN/IMG data as-is at the address you enter and does not parse configuration words from the image. HEX files still use their embedded addresses.
    - Check the write address and **Flash Configuration Words**.
+   - Selecting a SoC fills **Flash Configuration Words** with that family's EVK default.
+     The precedence is: words edited by the user (custom) > config block detected in the
+     image > SoC default. Editing the field or applying the ⚙️ dialog marks it custom.
    - Then select or drag an HPM Flash image into the bottom **Firmware Image** drop zone.
-5. Optionally open the ⚙️ button next to **Flash Configuration Words** to generate the four configuration words from the vendor-style GUI.
+     `.bin`, `.img`, and Intel HEX (`.hex`, `.ihex`, `.ihx`) files are supported. Intel HEX
+     files use the load addresses stored in the file; editing **Write Address** shifts all
+     segments by the same offset.
+5. Optionally open the ⚙️ button next to **Flash Configuration Words** to use the vendor-style GUI.
+   The dialog converts in both directions: changing the options updates the words, and editing
+   the **Configuration words** field updates the options. Choosing **Auto** in the dropdown
+   returns to the image/SoC priority after custom edits.
 6. Click **Program**. The progress bar is shown only while programming is running.
 
 ## Reading and erasing flash
@@ -89,6 +98,8 @@ VID/PID. See `chrome-webhid-policy.json` in this folder.
 ## Notes
 
 - The default write address is `0x80000400`.
-- The whole image is written as-is; the configuration block is not stripped.
+- BIN/IMG images are written as-is at the write address; the configuration block is not stripped.
+- Intel HEX images are parsed into address segments and each segment is written and verified
+  at the address from the file. Sparse files with several address ranges are supported.
 - `Query RTE 5` may return ABORT on older ROMs; this is expected.
 - The tool loads `bl_fw` automatically at connection time. A short re-enumeration is normal.

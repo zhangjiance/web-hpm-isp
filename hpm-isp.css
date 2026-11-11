@@ -1929,6 +1929,17 @@ body {
   word-break: break-all;
 }
 
+.hpm-app .hpm-config-preview-input {
+  box-sizing: border-box;
+  color: var(--button-primary);
+  font-weight: 600;
+}
+
+.hpm-app .hpm-config-preview-input.is-invalid {
+  border-color: #e05252;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #e05252 18%, transparent);
+}
+
 .hpm-config-preview-hint {
   margin-top: 3px;
   color: var(--text-muted);

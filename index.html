@@ -144,7 +144,7 @@
                       id="configWords"
                       type="text"
                       value="0xfcf90001, 0x5, 0x0, 0x0"
-                      title="XPI NOR Device Configuration Block (normally four 32-bit words). Auto-filled when a 0xFCF9xxxx block is found in the image."
+                      title="XPI NOR Device Configuration Block (normally four 32-bit words). Priority: custom words > config detected in the image > selected SoC default. Editing this field or applying the GUI marks it custom."
                     />
                     <button
                       id="configGearBtn"
@@ -165,8 +165,8 @@
                   <input
                     id="imageFile"
                     type="file"
-                    accept=".bin,.img,application/octet-stream"
-                    title="HPM Flash image with an optional 0xFCF9xxxx configuration block. The whole file is written as-is."
+                    accept=".bin,.img,.hex,.ihex,.ihx,application/octet-stream"
+                    title="HPM Flash image (.bin, .img, or Intel HEX). HEX files use the addresses stored in the file; BIN/IMG files are written as-is at the Write Address."
                   />
                   <span class="hpm-fw-drop-icon" aria-hidden="true">
                     <svg class="hpm-drop-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -180,7 +180,7 @@
                   </span>
                   <label for="imageFile" class="hpm-file-button">Choose File</label>
                   <span id="imageFileName" class="hpm-file-name">No file selected</span>
-                  <span class="hpm-fw-drop-hint">Drop .bin / .img here</span>
+                  <span class="hpm-fw-drop-hint">Drop .bin / .img / .hex</span>
                 </div>
               </fieldset>
 
@@ -434,8 +434,9 @@
               Custom FLASH configuration
             </label>
             <label class="hpm-config-preset">
-              <span>Typical configuration</span>
+              <span>Configuration preset</span>
               <select id="flashConfigPreset">
+                <option value="auto">Auto (image / selected SoC)</option>
                 <option value="custom">Custom</option>
                 <option value="hpm5300evk">HPM5100/5300/5301Lite/5E00/6P00 EVK</option>
                 <option value="typical_a0">HPM6200/6300/6800/6E00 EVK (A, g0)</option>
@@ -592,12 +593,17 @@
         </details>
 
         <div class="hpm-config-preview">
-          <div class="hpm-config-preview-label">Generated words</div>
-          <div id="flashConfigPreview" class="hpm-config-preview-value">
-            0xfcf90002, 0x5, 0x1000, 0x0
-          </div>
+          <label class="hpm-config-preview-label" for="flashConfigPreview">Configuration words (editable)</label>
+          <input
+            id="flashConfigPreview"
+            class="hpm-config-preview-input"
+            type="text"
+            value="0xfcf90002, 0x5, 0x1000, 0x0"
+            spellcheck="false"
+            title="Edit these words directly to update the options above; changing any option updates this field."
+          />
           <div class="hpm-config-preview-hint">
-            The low 4 bits of the header are generated automatically from the options in use. You can still edit the field manually after applying.
+            Edit the words here or use the options above — both stay in sync. The low 4 bits of the header are generated from the options in use.
           </div>
         </div>
 
